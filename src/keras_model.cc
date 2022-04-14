@@ -1,14 +1,22 @@
 #include <keras_model.hpp>
 
+keras::KerasModel::KerasModel(const std::string &input_fname, bool verbose, keras::DelegateEnabler &enabler)
+    : m_verbose(verbose)
+{
+  load_weights(input_fname, enabler);
+}
+
 keras::KerasModel::KerasModel(const std::string &input_fname, bool verbose)
     : m_verbose(verbose)
 {
-  load_weights(input_fname);
+  keras::DelegateEnabler enabler;
+  load_weights(input_fname, enabler);
 }
 
 std::vector<float> keras::KerasModel::compute_output(keras::DataChunk *dc)
 {
-  if (this->m_verbose) {
+  if (this->m_verbose)
+  {
     std::cout << std::endl << "KerasModel compute output" << std::endl;
     std::cout << "Input data size:" << std::endl;
     dc->show_name();
@@ -24,12 +32,15 @@ std::vector<float> keras::KerasModel::compute_output(keras::DataChunk *dc)
 
     out = m_layers[l]->compute_output(inp);
 
-    if (this->m_verbose) {
+    if (this->m_verbose)
+    {
       std::cout << "Input" << std::endl;
       inp->show_name();
 
       std::cout << "Output" << std::endl;
       out->show_name();
+
+      std::cout << std::endl;
     }
 
     if (inp != dc)
@@ -41,16 +52,16 @@ std::vector<float> keras::KerasModel::compute_output(keras::DataChunk *dc)
   }
 
   std::vector<float> flat_out = out->get_1d();
-  
-  //if (this->m_verbose)
-  //  out->show_values();
+
+  // if (this->m_verbose)
+  //   out->show_values();
 
   delete out;
 
   return flat_out;
 }
 
-void keras::KerasModel::load_weights(const std::string &input_fname)
+void keras::KerasModel::load_weights(const std::string &input_fname, keras::DelegateEnabler &enabler)
 {
   std::cout << "Reading model from " << input_fname << std::endl;
 
@@ -64,7 +75,7 @@ void keras::KerasModel::load_weights(const std::string &input_fname)
   bool reading = true;
   int layer = 0;
 
-  while(reading)
+  while (reading)
   { // iterate over layers
     fin >> tmp_str >> tmp_int >> layer_type;
 
@@ -78,7 +89,7 @@ void keras::KerasModel::load_weights(const std::string &input_fname)
     }
     else if (layer_type == "Activation")
     {
-      l = new LayerActivation();
+      l = new LayerActivation(m_verbose);
     }
     else if (layer_type == "MaxPooling2D")
     {
@@ -99,7 +110,9 @@ void keras::KerasModel::load_weights(const std::string &input_fname)
     else if (layer_type == "Dropout")
     {
       continue; // we dont need dropout layer in prediciton mode
-    } else {
+    }
+    else
+    {
       reading = false;
       continue;
     }
@@ -110,9 +123,11 @@ void keras::KerasModel::load_weights(const std::string &input_fname)
       throw "Layer is empty, maybe it is not defined? Cannot define network.\n";
     }
 
-    l->load_weights(fin);
+    l->load_weights(fin, enabler);
     m_layers.push_back(l);
     layer++;
+
+    std::cout << std::endl;
   }
 
   fin.close();
@@ -129,7 +144,7 @@ keras::KerasModel::~KerasModel()
 int keras::KerasModel::get_output_length() const
 {
   int i = m_layers.size() - 1;
- 
+
   while ((i > 0) && (m_layers[i]->get_output_units() == 0))
     --i;
 

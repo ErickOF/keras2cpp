@@ -5,11 +5,13 @@ INCLUDE_DIRECTORIES (${CMAKE_CURRENT_SOURCE_DIR}/../include)
 SET (LIBRARY_NAME keras2cpp)
 SET (SRC_FILES
     datachunk.cc
-    layers.cc 
+    delegates.cc
+    layers.cc
     keras_model.cc
 )
 SET (INCLUDE_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/datachunk.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include/delegates.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/layers.hpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/keras_model.hpp
 )

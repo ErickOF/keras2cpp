@@ -89,8 +89,156 @@ std::vector<std::vector<float>> keras::conv_single_depth_same(
   return y;
 }
 
+/**
+ * @brief Destroy the Activation Layer object
+ * 
+ */
+keras::LayerActivation::~LayerActivation()
+{
+  if (m_delegate != nullptr)
+    delete m_delegate;
+}
 
-void keras::LayerConv2D::load_weights(std::ifstream &fin)
+/**
+ * @brief Load the weights from the input file
+ * 
+ * @param fin input file to read
+ * @param enabler delegate to enable
+ */
+void keras::LayerActivation::load_weights(std::ifstream &fin, DelegateEnabler &enabler)
+{
+  /** Read the activation type of the layer **/
+  fin >> m_activation_type;
+
+  /** Create the delegate if need it **/
+  if (enabler.softmax && (m_activation_type == "softmax"))
+    m_delegate = new DelegateSoftmax(m_verbose);
+
+  if (m_verbose)
+  {
+    std::cout << "Activation type " << m_activation_type << std::endl;
+
+    if (m_delegate != nullptr)
+      std::cout << "Delegate was added" << std::endl;
+  }
+}
+
+/**
+ * @brief Compute the activation function
+ * 
+ * @param dc data chunk to apply the activation function
+ * @return keras::DataChunk* 
+ */
+keras::DataChunk *keras::LayerActivation::compute_output(keras::DataChunk *dc)
+{
+  /** 3D Data chunk **/
+  if (dc->get_data_dim() == 3)
+  {
+    /** Get the values from data chunk **/
+    std::vector<std::vector<std::vector<float>>> y = dc->get_3d();
+
+    /** Apply ReLU function **/
+    if (m_activation_type == "relu")
+    {
+      for (unsigned int i = 0; i < y.size(); ++i)
+      {
+        for (unsigned int j = 0; j < y[0].size(); ++j)
+        {
+          for (unsigned int k = 0; k < y[0][0].size(); ++k)
+          {
+            if (y[i][j][k] < 0)
+              y[i][j][k] = 0;
+          }
+        }
+      }
+
+      /** Set the output **/
+      keras::DataChunk *out = new keras::DataChunk2D();
+      out->set_data(y);
+
+      return out;
+    }
+    /** No implemented activation function for 3D value **/
+    else
+    {
+      keras::missing_activation_impl(m_activation_type);
+    }
+  }
+  /** Activation function for flat data **/
+  else if (dc->get_data_dim() == 1)
+  {
+    /** Get the data **/
+    std::vector<float> y = dc->get_1d();
+
+    /** Apply ReLU function **/
+    if (m_activation_type == "relu")
+    {
+      for (unsigned int k = 0; k < y.size(); ++k)
+      {
+        if (y[k] < 0)
+          y[k] = 0;
+      }
+    }
+    /** Apply Softmax function **/
+    else if (m_activation_type == "softmax")
+    {
+      if (m_delegate == nullptr)
+      {
+        float sum = 0.0;
+
+        for (unsigned int k = 0; k < y.size(); ++k)
+        {
+          y[k] = exp(y[k]);
+          sum += y[k];
+        }
+
+        for (unsigned int k = 0; k < y.size(); ++k)
+        {
+          y[k] /= sum;
+        }
+      } else {
+        y = m_delegate->eval(y);
+      }
+    }
+    /** Apply sigmoid function **/
+    else if (m_activation_type == "sigmoid")
+    {
+      for (unsigned int k = 0; k < y.size(); ++k)
+      {
+        y[k] = 1 / (1 + exp(-y[k]));
+      }
+    }
+    /** Apply tanh function **/
+    else if (m_activation_type == "tanh")
+    {
+      for (unsigned int k = 0; k < y.size(); ++k)
+      {
+        y[k] = tanh(y[k]);
+      }
+    }
+    /** No implemented activation function for flat data **/
+    else
+    {
+      keras::missing_activation_impl(m_activation_type);
+    }
+
+    /** Set the flat output **/
+    keras::DataChunk *out = new DataChunkFlat();
+    out->set_data(y);
+
+    return out;
+  }
+  /** Data dimensions are not supported **/
+  else
+  {
+    throw "data dim not supported";
+  }
+
+  return dc;
+}
+
+
+void keras::LayerConv2D::load_weights(std::ifstream &fin, DelegateEnabler &enabler)
 {
   char tmp_char = ' ';
   std::string tmp_str = "";
@@ -159,13 +307,7 @@ void keras::LayerConv2D::load_weights(std::ifstream &fin)
   fin >> tmp_char; // for ']'
 }
 
-void keras::LayerActivation::load_weights(std::ifstream &fin)
-{
-  fin >> m_activation_type;
-  // cout << "Activation type " << m_activation_type << endl;
-}
-
-void keras::LayerMaxPooling::load_weights(std::ifstream &fin)
+void keras::LayerMaxPooling::load_weights(std::ifstream &fin, DelegateEnabler &enabler)
 {
   fin >> m_pool_x >> m_pool_y;
 
@@ -173,7 +315,7 @@ void keras::LayerMaxPooling::load_weights(std::ifstream &fin)
     std::cout << "MaxPooling " << m_pool_x << "x" << m_pool_y << std::endl;
 }
 
-void keras::LayerDense::load_weights(std::ifstream &fin)
+void keras::LayerDense::load_weights(std::ifstream &fin, DelegateEnabler &enabler)
 {
   fin >> m_input_cnt >> m_neurons;
   float tmp_float;
@@ -288,96 +430,6 @@ keras::DataChunk *keras::LayerMaxPooling::compute_output(keras::DataChunk *dc)
   out->set_data(y_ret);
 
   return out;
-}
-
-keras::DataChunk *keras::LayerActivation::compute_output(keras::DataChunk *dc)
-{
-
-  if (dc->get_data_dim() == 3)
-  {
-    std::vector<std::vector<std::vector<float>>> y = dc->get_3d();
-
-    if (m_activation_type == "relu")
-    {
-      for (unsigned int i = 0; i < y.size(); ++i)
-      {
-        for (unsigned int j = 0; j < y[0].size(); ++j)
-        {
-          for (unsigned int k = 0; k < y[0][0].size(); ++k)
-          {
-            if (y[i][j][k] < 0)
-              y[i][j][k] = 0;
-          }
-        }
-      }
-
-      keras::DataChunk *out = new keras::DataChunk2D();
-      out->set_data(y);
-
-      return out;
-    }
-    else
-    {
-      keras::missing_activation_impl(m_activation_type);
-    }
-  }
-  else if (dc->get_data_dim() == 1)
-  { // flat data, use 1D
-    std::vector<float> y = dc->get_1d();
-
-    if (m_activation_type == "relu")
-    {
-      for (unsigned int k = 0; k < y.size(); ++k)
-      {
-        if (y[k] < 0)
-          y[k] = 0;
-      }
-    }
-    else if (m_activation_type == "softmax")
-    {
-      float sum = 0.0;
-
-      for (unsigned int k = 0; k < y.size(); ++k)
-      {
-        y[k] = exp(y[k]);
-        sum += y[k];
-      }
-
-      for (unsigned int k = 0; k < y.size(); ++k)
-      {
-        y[k] /= sum;
-      }
-    }
-    else if (m_activation_type == "sigmoid")
-    {
-      for (unsigned int k = 0; k < y.size(); ++k)
-      {
-        y[k] = 1 / (1 + exp(-y[k]));
-      }
-    }
-    else if (m_activation_type == "tanh")
-    {
-      for (unsigned int k = 0; k < y.size(); ++k)
-      {
-        y[k] = tanh(y[k]);
-      }
-    }
-    else
-    {
-      keras::missing_activation_impl(m_activation_type);
-    }
-
-    keras::DataChunk *out = new DataChunkFlat();
-    out->set_data(y);
-
-    return out;
-  }
-  else
-  {
-    throw "data dim not supported";
-  }
-
-  return dc;
 }
 
 keras::DataChunk *keras::LayerConv2D::compute_output(keras::DataChunk *dc)
