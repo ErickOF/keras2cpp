@@ -21,10 +21,10 @@ clean: build
 
 # Conver keras model to cpp code
 convert-keras2cpp:
-		@python dump_to_simple_cpp.py -a $(ARCH) -w $(WEIGHTS) -o $(DUMPED) -v $(VERBOSE) \
+		@cd tools && python dump_to_simple_cpp.py -a $(ARCH) -w $(WEIGHTS) -o $(DUMPED) -v $(VERBOSE) \
 			|| echo "Run as: make convert-keras2cpp ARCH=path/to/arch.json WEIGHTS=path/to/weights.h5 DUMPED=dumped.dumped VERBOSE=0|1"
 
 # Generate a random input example
 generate-data-sample:
-		@python test_run_cnn.py -a $(ARCH) -w $(WEIGHTS) -d $(DATA_SAMPLE) -o $(KERAS_OUTPUT) \
+		@cd tools && python test_run_cnn.py -a $(ARCH) -w $(WEIGHTS) -d $(DATA_SAMPLE) -o $(KERAS_OUTPUT) \
 			|| echo "Run as: make generate-data-sample ARCH=path/to/arch.json WEIGHTS=path/to/weights.h5 DATA_SAMPLE=data_sample.dat KERAS_OUTPUT=keras_output.dat"
