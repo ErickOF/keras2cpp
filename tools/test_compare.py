@@ -24,17 +24,17 @@ keras_output     = get_numbers_from_file(args.keras_response)
 keras2cpp_output = get_numbers_from_file(args.keras2cpp_response)
 
 if len(keras_output) != len(keras2cpp_output):
-    print "Different output dimensions"
+    print("Different output dimensions")
     sys.exit(1)
 
 sub = np.sum(np.abs(keras_output - keras2cpp_output))
 
 if sub < 1e-6:
-    print 'Test: [DONE]'
-    print 'Dump is working correctly.'
+    print('Test: [DONE]')
+    print('Dump is working correctly.')
     sys.exit(0)
 else:
-    print 'Test: [ERROR]'
-    print 'The output from Keras and Keras2cpp are different.'
-    print 'Difference value:', sub
+    print('Test: [ERROR]')
+    print('The output from Keras and Keras2cpp are different.')
+    print('Difference value:', sub)
     sys.exit(1)
