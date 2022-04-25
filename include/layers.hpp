@@ -32,8 +32,8 @@ public:
   virtual void load_weights(std::ifstream &fin, DelegateEnabler &enabler) = 0;
   virtual keras::DataChunk *compute_output(keras::DataChunk *) = 0;
 
-  Layer(std::string name) : m_name(name), m_delegate(NULL), m_verbose(false) {}
-  Layer(std::string name, bool verbose) : m_name(name), m_delegate(NULL), m_verbose(verbose) {}
+  Layer(std::string name) : m_name(name), m_verbose(false) {}
+  Layer(std::string name, bool verbose) : m_name(name), m_verbose(verbose) {}
 
   virtual unsigned int get_input_rows() const = 0;
   virtual unsigned int get_input_cols() const = 0;
@@ -46,14 +46,13 @@ public:
 
 protected:
   std::string m_name;
-  keras::Delegate *m_delegate;
   bool m_verbose;
 };
 
 class keras::LayerActivation : public Layer
 {
 public:
-  LayerActivation(bool verbose): Layer("Activation", verbose) {}
+  LayerActivation(bool verbose) : Layer("Activation", verbose) {}
   LayerActivation() : Layer("Activation") {}
   ~LayerActivation();
 
@@ -75,18 +74,17 @@ public:
     return 0;
   }
 
+private:
   std::string m_activation_type;
+  DelegateSoftmax *m_delegate;
 };
 
 class keras::LayerFlatten : public Layer
 {
 public:
-  LayerFlatten(bool verbose) : Layer("Flatten")
-  {
-    this->verbose = verbose;
-  }
-
+  LayerFlatten(bool verbose) : Layer("Flatten", verbose) {}
   LayerFlatten() : Layer("Flatten") {}
+
   void load_weights(std::ifstream &fin, DelegateEnabler &enabler){};
   keras::DataChunk *compute_output(keras::DataChunk *);
 
@@ -104,19 +102,14 @@ public:
   {
     return 0;
   }
-
-  bool verbose;
 };
 
 class keras::LayerMaxPooling : public Layer
 {
 public:
-  LayerMaxPooling(bool verbose) : Layer("MaxPooling2D")
-  {
-    this->verbose = verbose;
-  };
+  LayerMaxPooling(bool verbose) : Layer("MaxPooling2D", verbose) {}
 
-  LayerMaxPooling() : Layer("MaxPooling2D"){};
+  LayerMaxPooling() : Layer("MaxPooling2D") {}
 
   void load_weights(std::ifstream &fin, DelegateEnabler &enabler);
   keras::DataChunk *compute_output(keras::DataChunk *);
@@ -136,7 +129,6 @@ public:
     return 0;
   }
 
-  bool verbose;
   int m_pool_x;
   int m_pool_y;
 };
@@ -182,11 +174,7 @@ public:
 class keras::LayerDense : public Layer
 {
 public:
-  LayerDense(bool verbose) : Layer("Dense")
-  {
-    this->verbose = verbose;
-  }
-
+  LayerDense(bool verbose) : Layer("Dense", verbose) {}
   LayerDense() : Layer("Dense") {}
 
   void load_weights(std::ifstream &fin, DelegateEnabler &enabler);
@@ -209,7 +197,6 @@ public:
     return m_neurons;
   }
 
-  bool verbose;
   int m_input_cnt;
   int m_neurons;
 };

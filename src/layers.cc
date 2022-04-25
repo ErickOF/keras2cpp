@@ -253,7 +253,7 @@ void keras::LayerConv2D::load_weights(std::ifstream &fin, DelegateEnabler &enabl
     skip = true;
   }
 
-  if (this->verbose)
+  if (m_verbose)
     std::cout << "LayerConv2D " << m_kernels_cnt << "x" << m_depth << "x"
       << m_rows << "x" << m_cols << " border_mode " << m_border_mode << std::endl;
 
@@ -311,7 +311,7 @@ void keras::LayerMaxPooling::load_weights(std::ifstream &fin, DelegateEnabler &e
 {
   fin >> m_pool_x >> m_pool_y;
 
-  if (this->verbose)
+  if (m_verbose)
     std::cout << "MaxPooling " << m_pool_x << "x" << m_pool_y << std::endl;
 }
 
@@ -321,7 +321,7 @@ void keras::LayerDense::load_weights(std::ifstream &fin, DelegateEnabler &enable
   float tmp_float;
   char tmp_char = ' ';
 
-  if (this->verbose)
+  if (m_verbose)
     std::cout << "Inputs: " << m_input_cnt << ", neurons: " << m_neurons << std::endl;
 
   for (int i = 0; i < m_input_cnt; ++i)
@@ -339,7 +339,7 @@ void keras::LayerDense::load_weights(std::ifstream &fin, DelegateEnabler &enable
     m_weights.push_back(tmp_n);
   }
 
-  if (this->verbose)
+  if (m_verbose)
     std::cout << "weights " << m_weights.size() << std::endl;
 
   fin >> tmp_char; // for '['
@@ -352,7 +352,7 @@ void keras::LayerDense::load_weights(std::ifstream &fin, DelegateEnabler &enable
 
   fin >> tmp_char; // for ']'
 
-  if (this->verbose)
+  if (m_verbose)
     std::cout << "bias " << m_bias.size() << std::endl;
 }
 
@@ -434,7 +434,7 @@ keras::DataChunk *keras::LayerMaxPooling::compute_output(keras::DataChunk *dc)
 
 keras::DataChunk *keras::LayerConv2D::compute_output(keras::DataChunk *dc)
 {
-  if (this->verbose)
+  if (m_verbose)
     std::cout << "Running: " << this->get_name() << std::endl;
 
   unsigned int st_x = (m_kernels[0][0].size() - 1) >> 1;
@@ -460,7 +460,7 @@ keras::DataChunk *keras::LayerConv2D::compute_output(keras::DataChunk *dc)
     y_ret.push_back(tmp);
   }
 
-  if (this->verbose) {
+  if (m_verbose) {
     std::cout << "y_ret: " << y_ret.size() << "," << y_ret[0].size() << "," << y_ret[0][0].size() << std::endl;
     std::cout << "kernel: " << m_kernels.size() << "x" << m_kernels[0].size() << "x" << m_kernels[0][0].size() << "x" << m_kernels[0][0][0].size() << std::endl;
     std::cout << "img: " << im.size() << "x" << im[0].size() << "x" << im[0][0].size() << std::endl;
