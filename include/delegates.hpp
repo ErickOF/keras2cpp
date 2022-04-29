@@ -2,10 +2,28 @@
 #define KERAS2CPP_DELEGATES_HPP
 
 #include <cmath>
+#include <errno.h>
+#include <fcntl.h>
 #include <fstream>
 #include <iostream>
+#include <semaphore.h>
+#include <sys/mman.h>
 #include <string>
 #include <vector>
+
+#define SEM_MUTEX_NAME "/axcnn-sem-mutex"
+#define SEM_BUFFER_COUNT_NAME "/axcnn-sem-buffer-count"
+#define SEM_READY_SIGNAL_NAME "/axcnn-sem-ready-signal"
+#define SHARED_MEM_NAME "axcnn-shared-memory"
+#define SHARED_MEM_MAX_BUF 10
+
+typedef struct shared_mem {
+    float* op1;
+    float* op2;
+    char operation;
+    int index;
+} axc_shared_mem_t;
+
 
 namespace keras
 {

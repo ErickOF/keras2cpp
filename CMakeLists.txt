@@ -16,6 +16,10 @@ ADD_EXECUTABLE (keras2cpp-model tools/test_run_cnn.cc)
 
 # Link against libraries
 TARGET_LINK_LIBRARIES (keras2cpp-model keras2cpp)
+# Add pthread
+TARGET_LINK_LIBRARIES (keras2cpp-model pthread)
+# Add rt
+TARGET_LINK_LIBRARIES (keras2cpp-model rt)
 
 # Install the binary
 INSTALL (TARGETS keras2cpp-model RUNTIME DESTINATION bin)
