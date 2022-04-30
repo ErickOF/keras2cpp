@@ -18,8 +18,8 @@
 #define SHARED_MEM_MAX_BUF 10
 
 typedef struct shared_mem {
-    float* op1;
-    float* op2;
+    float op1[4096];
+    float op2[4096];
     char operation;
     int index;
 } axc_shared_mem_t;

@@ -73,6 +73,16 @@ std::vector<float> keras::DelegateSoftmax::eval(std::vector<float> input)
         exit(-1);
     }
 
+    std::cout << "Semaphores are ready!" << std::endl;
+
+    if (-1 == sem_post(ready_sem))
+    {
+        std::cout << "Ready sem cannot be released" << std::endl;
+        exit(-1);
+    }
+
+    std::cout << "Ready sem was released" << std::endl;
+
     munmap(address, sizeof(axc_shared_mem_t));
     std::cout << "Shared memory was unmapped" << std::endl;;
 
