@@ -1,5 +1,5 @@
-#ifndef KERAS2CPP_KERAS_MODEL_H
-#define KERAS2CPP_KERAS_MODEL_H
+#ifndef KERAS2CPP_KERAS_MODEL_HPP
+#define KERAS2CPP_KERAS_MODEL_HPP
 
 #include <string>
 #include <vector>
@@ -41,4 +41,4 @@ private:
   bool m_verbose;
 };
 
-#endif /* KERAS2CPP_KERAS_MODEL_H */
+#endif /* KERAS2CPP_KERAS_MODEL_HPP */
