@@ -9,15 +9,12 @@
 #include <sys/mman.h>
 #include <vector>
 
-#define SEM_MUTEX_NAME "/axc-sem-mutex"
-#define SEM_BUFFER_COUNT_NAME "/axc-sem-buffer-count"
-#define SEM_READY_SIGNAL_NAME "/axc-sem-ready-signal"
-#define SHARED_MEM_NAME "axc-shared-memory"
-#define SHARED_MEM_OP1_NAME "axc-shared-memory-op1"
-#define SHARED_MEM_OP2_NAME "axc-shared-memory-op2"
-#define SHARED_MEM_PARAMS_NAME "axc-shared-memory-params"
-#define SHARED_MEM_OUT_NAME "axc-shared-memory-out"
-
+#define SEM_READY_SIGNAL_NAME "/axcnna-sem-ready-signal"
+#define SHARED_MEM_NAME "axcnna-shared-memory"
+#define SHARED_MEM_OP1_NAME "axcnna-shared-memory-op1"
+#define SHARED_MEM_OP2_NAME "axcnna-shared-memory-op2"
+#define SHARED_MEM_PARAMS_NAME "axcnna-shared-memory-params"
+#define SHARED_MEM_OUT_NAME "axcnna-shared-memory-out"
 
 /**
  * @brief Represents the operations supported by the accelerator
@@ -32,7 +29,7 @@ typedef enum axc_op
 
 /**
  * @brief Current status of the driver request
- * 
+ *
  */
 typedef enum axc_driver_status
 {
@@ -42,10 +39,12 @@ typedef enum axc_driver_status
 
 /**
  * @brief Define the operations between the delegate and source driver
- * 
+ *
  */
 typedef enum axc_user_request
 {
+    /* No operation */
+    AXC_IDLE,
     /* Allocate shared memory for buffers */
     AXC_ALLOCATE,
     /* Read buffers */
@@ -58,21 +57,22 @@ typedef enum axc_user_request
 
 /**
  * @brief Shared memory section for IPC between delegate and source driver
- * 
+ *
  */
-typedef struct axc_shared_mem {
+typedef struct axc_shared_mem
+{
     /* First operator */
-    GList* op1;
+    GList *op1;
     /* Size of the first operator */
-    int32_t op1_size;
+    uint32_t op1_size;
     /* Second operator */
-    GList* op2;
+    GList *op2;
     /* Size of the second operator */
-    int32_t op2_size;
+    uint32_t op2_size;
     /* Output */
-    GList* output;
+    GList *output;
     /* Size of the output */
-    int32_t out_size;
+    uint32_t out_size;
     /* Operation to perform */
     axc_op_t operation;
     /* Delegate request */
@@ -85,8 +85,16 @@ typedef struct axc_shared_mem {
  * @brief Call back-end to execute softmax function
  *
  * @param input data to apply softmax
- * @return std::vector<float> 
+ * @param verbose activate verbose mode to print out messages
+ * @return std::vector<float>
  */
-std::vector<float> apply_softmax(std::vector<float> input);
+std::vector<float> apply_softmax(std::vector<float> input, bool verbose);
+
+/**
+ * @brief Print out shared memory data when verbose mode is on
+ *
+ * @param shmem shared memory to print
+ */
+void shared_memory_verbose(axc_shared_mem_t *shmem);
 
 #endif /* KERAS2CPP_IPC_HPP */

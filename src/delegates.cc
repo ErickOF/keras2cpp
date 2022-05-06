@@ -1,5 +1,6 @@
 #include <delegates.hpp>
 
+
 std::vector<float> keras::DelegateConv2D::eval(std::vector<float> input, std::vector<float> kernel, int k_size, int stride)
 {
     std::vector<float> output;
@@ -13,9 +14,8 @@ std::vector<float> keras::DelegateSoftmax::eval(std::vector<float> input)
     if (m_verbose)
         std::cout << m_name << " delegate running..." << std::endl;
 
-
     /** To store the output **/
-    std::vector<float> output = apply_softmax(input);
+    std::vector<float> output = apply_softmax(input, m_verbose);
 
     return output;
 }

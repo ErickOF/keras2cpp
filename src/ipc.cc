@@ -1,12 +1,14 @@
 #include <ipc.hpp>
 
+
 /**
  * @brief Call back-end to execute softmax function
  *
  * @param input data to apply softmax
+ * @param verbose activate verbose mode to print out messages
  * @return std::vector<float> 
  */
-std::vector<float> apply_softmax(std::vector<float> input)
+std::vector<float> apply_softmax(std::vector<float> input, bool verbose)
 {
     std::vector<float> output(input.size());
 
@@ -14,21 +16,8 @@ std::vector<float> apply_softmax(std::vector<float> input)
     axc_shared_mem_t* address;
     /* Semaphores to lock memory R/W operations */
     sem_t* mutex_sem;
-    /* Number of available buffers */
-    sem_t* buffer_count_sem;
-    /* Data is ready to read */
-    sem_t* ready_sem;
     /* File descriptor of the shared memory */
     int fd_shm;
-
-    /* Mutual exclusion semaphore */
-    mutex_sem = sem_open(SEM_MUTEX_NAME, 0, 0, 0);
-
-    if (SEM_FAILED == mutex_sem)
-    {
-        std::cout << "'" << SEM_MUTEX_NAME << "' semaphore open failed" << std::endl;
-        exit(-1);
-    }
 
     /* Get shared memory */
     fd_shm = shm_open(SHARED_MEM_NAME, O_RDWR, 0);
@@ -51,19 +40,10 @@ std::vector<float> apply_softmax(std::vector<float> input)
         exit(-1);
     }
 
-    std::cout << "Shared memory was mapped" << std::endl;
-    std::cout << "Shared memory values:" << std::endl;
-    std::cout << "op1:" << address->op1 << std::endl;
-    std::cout << "op1 size:" << address->op1_size << std::endl;
-    std::cout << "op2:" << address->op2 << std::endl;
-    std::cout << "op2 size:" << address->op2_size << std::endl;
-    std::cout << "out:" << address->output << std::endl;
-    std::cout << "out size:" << address->out_size << std::endl;
+    /* Mutex sem for shared memory */
+    mutex_sem = sem_open(SEM_READY_SIGNAL_NAME, 0, 0, 0);
 
-    /** Counting semaphore, indicating the number of buffers **/
-    ready_sem = sem_open(SEM_READY_SIGNAL_NAME, 0, 0, 0);
-
-    if (SEM_FAILED == ready_sem)
+    if (SEM_FAILED == mutex_sem)
     {
         std::cout << "Ready sem open failed" << std::endl;
         exit(-1);
@@ -71,13 +51,42 @@ std::vector<float> apply_softmax(std::vector<float> input)
 
     std::cout << "Semaphores are ready!" << std::endl;
 
-    if (-1 == sem_post(ready_sem))
+    /* Take control of the shared memory to allocate memory */
+    sem_wait(mutex_sem);
+
+    if (verbose)
     {
-        std::cout << "Ready sem cannot be released" << std::endl;
-        exit(-1);
+        std::cout << "Default shared memory" << std::endl;
+        shared_memory_verbose(address);
     }
 
-    std::cout << "Ready sem was released" << std::endl;
+    /* Ask for buffer */
+    address->op1_size = input.size();
+    address->op2_size = 0;
+    address->out_size = input.size();
+    address->request = AXC_ALLOCATE;
+
+    if (verbose)
+    {
+        std::cout << "Softmax request: Allocate memory for buffers" << std::endl;
+        shared_memory_verbose(address);
+    }
+
+    /* Release semaphore */
+    sem_post(mutex_sem);
+
+    /* Take control of the shared memory */
+    sem_wait(mutex_sem);
+
+
+    if (verbose)
+    {
+        std::cout << "Driver response: Allocate memory for buffers" << std::endl;
+        shared_memory_verbose(address);
+    }
+
+    /* Release semaphore */
+    sem_post(mutex_sem);
 
     munmap(address, sizeof(axc_shared_mem_t));
     close(fd_shm);
@@ -85,4 +94,22 @@ std::vector<float> apply_softmax(std::vector<float> input)
     std::cout << "Shared memory was unmapped" << std::endl;
 
     return output;
+}
+
+/**
+ * @brief Print out shared memory data when verbose mode is on
+ * 
+ * @param shmem shared memory to print
+ */
+void shared_memory_verbose(axc_shared_mem_t* shmem)
+{
+    std::cout << "Shared memory values: " << std::endl;
+    std::cout << "op1: " << shmem->op1 << std::endl;
+    std::cout << "op1 size: " << shmem->op1_size << std::endl;
+    std::cout << "op2: " << shmem->op2 << std::endl;
+    std::cout << "op2 size: " << shmem->op2_size << std::endl;
+    std::cout << "out: " << shmem->output << std::endl;
+    std::cout << "out size: " << shmem->out_size << std::endl;
+    std::cout << "request: " << shmem->request << std::endl;
+    std::cout << "request status: " << shmem->status << std::endl;
 }
