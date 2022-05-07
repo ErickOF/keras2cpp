@@ -2,19 +2,18 @@
 #define KERAS2CPP_IPC_HPP
 
 #include <fcntl.h>
-#include <glib.h>
 #include <iostream>
 #include <semaphore.h>
 #include <unistd.h>
 #include <sys/mman.h>
 #include <vector>
 
-#define SEM_READY_SIGNAL_NAME "/axcnna-sem-ready-signal"
-#define SHARED_MEM_NAME "axcnna-shared-memory"
-#define SHARED_MEM_OP1_NAME "axcnna-shared-memory-op1"
-#define SHARED_MEM_OP2_NAME "axcnna-shared-memory-op2"
-#define SHARED_MEM_PARAMS_NAME "axcnna-shared-memory-params"
-#define SHARED_MEM_OUT_NAME "axcnna-shared-memory-out"
+#define SEM_READY_SIGNAL_NAME "/axc-sem-ready-signal"
+#define SHARED_MEM_NAME "axc-shared-memory"
+#define SHARED_MEM_OP1_NAME "axc-shared-memory-op1"
+#define SHARED_MEM_OP2_NAME "axc-shared-memory-op2"
+#define SHARED_MEM_PARAMS_NAME "axc-shared-memory-params"
+#define SHARED_MEM_OUT_NAME "axc-shared-memory-out"
 
 /**
  * @brief Represents the operations supported by the accelerator
@@ -62,15 +61,15 @@ typedef enum axc_user_request
 typedef struct axc_shared_mem
 {
     /* First operator */
-    GList *op1;
+    float *op1;
     /* Size of the first operator */
     uint32_t op1_size;
     /* Second operator */
-    GList *op2;
+    float *op2;
     /* Size of the second operator */
     uint32_t op2_size;
     /* Output */
-    GList *output;
+    float *output;
     /* Size of the output */
     uint32_t out_size;
     /* Operation to perform */
@@ -89,6 +88,16 @@ typedef struct axc_shared_mem
  * @return std::vector<float>
  */
 std::vector<float> apply_softmax(std::vector<float> input, bool verbose);
+
+/**
+ * @brief Write in a specific buffer
+ * 
+ * @param data data to write in the buffer
+ * @param shm_name shared memory name
+ * @param verbose activate verbose mode to print out messages
+ * @return bool true if the operation was successfull, otherwise false
+ */
+bool write_in_buffer(std::vector<float> data, const char* shm_name, bool verbose);
 
 /**
  * @brief Print out shared memory data when verbose mode is on
