@@ -9,8 +9,6 @@
  */
 std::vector<float> apply_softmax(std::vector<float> input, bool verbose)
 {
-    std::vector<float> output(input.size());
-
     /* Shared memory for IPC */
     axc_shared_mem_t *shared_mem;
     /* Semaphores to lock memory R/W operations */
@@ -107,12 +105,13 @@ std::vector<float> apply_softmax(std::vector<float> input, bool verbose)
                   << "Writting in the buffers" << std::endl;
 
     /* Copy data to the buffers */
-    write_in_buffer(input, SHARED_MEM_OP1_NAME, verbose);
+    write_buffer(input, SHARED_MEM_OP1_NAME, verbose);
 
     if (verbose)
-        std::cout << "Softmax request: Read buffers" << std::endl;
+        std::cout << "Softmax request: Execute" << std::endl;
 
-    shared_mem->request = AXC_READ;
+    shared_mem->request = AXC_EXECUTE;
+    shared_mem->operation = AXC_SOFTMAX;
 
     while (AXC_IDLE != shared_mem->request)
     {
@@ -122,11 +121,21 @@ std::vector<float> apply_softmax(std::vector<float> input, bool verbose)
         sem_wait(mutex_sem);
     }
 
+    /* Get the output of the sofmax function */
+    std::vector<float> output = read_buffer(SHARED_MEM_OUT_NAME, shared_mem->out_size, verbose);
+
     if (verbose)
     {
         std::cout << std::endl
                   << "Driver response: Buffers were read" << std::endl;
         shared_memory_verbose(shared_mem);
+
+        std::cout << "Input/Output" << std::endl;
+
+        for (int i = 0; i < shared_mem->op1_size; ++i)
+        {
+            std::cout << i << ": " << input[i] << "/" << output[i] << std::endl;
+        }
 
         std::cout << std::endl
                   << "Softmax request: Deallocate buffers" << std::endl;
@@ -163,6 +172,60 @@ std::vector<float> apply_softmax(std::vector<float> input, bool verbose)
 }
 
 /**
+ * @brief Read data from a specific buffer
+ *
+ * @param shm_name shered memory name
+ * @param size size of the buffer to read
+ * @param verbose activate verbose mode to print out messages
+ * @return std::vector<float> values read from the buffer
+ */
+std::vector<float> read_buffer(const char *shm_name, int size, bool verbose)
+{
+    /* To store the read output */
+    std::vector<float> output(size);
+
+    /* File descriptor of the shared memory */
+    int fd_buffer;
+    /* Shared memory address for the buffer */
+    float *buffer;
+
+    /* Get shared memory */
+    fd_buffer = shm_open(shm_name, O_RDWR, 0);
+
+    if (fd_buffer < 0)
+    {
+        std::cout << "The device '" << shm_name << "' could not open" << std::endl;
+        exit(-1);
+    }
+
+    /* Ask for memory */
+    buffer = (float *)mmap(NULL, sizeof(float) * size, PROT_READ | PROT_WRITE, MAP_SHARED, fd_buffer, 0);
+
+    if (MAP_FAILED == buffer)
+    {
+        close(fd_buffer);
+        std::cout << "The mapping of the '" << shm_name << "' could not be done" << std::endl;
+        exit(-1);
+    }
+
+    /* Copy data from the buffers */
+    for (int i = 0; i < size; ++i)
+    {
+        if (verbose)
+            std::cout << "Softmax output: " << i + 1 << "/" << size << std::endl;
+
+        output[i] = buffer[i];
+    }
+
+    munmap(buffer, sizeof(float));
+    close(fd_buffer);
+
+    std::cout << "Shared memory for buffer '" << shm_name << "' was unmapped" << std::endl;
+
+    return output;
+}
+
+/**
  * @brief Write in a specific buffer
  *
  * @param data data to write in the buffer
@@ -170,7 +233,7 @@ std::vector<float> apply_softmax(std::vector<float> input, bool verbose)
  * @param verbose activate verbose mode to print out messages
  * @return bool true if the operation was successfull, otherwise false
  */
-bool write_in_buffer(std::vector<float> data, const char *shm_name, bool verbose)
+bool write_buffer(std::vector<float> data, const char *shm_name, bool verbose)
 {
     const int buffer_size = data.size();
 
@@ -184,7 +247,6 @@ bool write_in_buffer(std::vector<float> data, const char *shm_name, bool verbose
 
     if (fd_buffer < 0)
     {
-        close(fd_buffer);
         std::cout << "The device '" << shm_name << "' could not open" << std::endl;
 
         return false;
@@ -195,6 +257,7 @@ bool write_in_buffer(std::vector<float> data, const char *shm_name, bool verbose
 
     if (MAP_FAILED == buffer)
     {
+        close(fd_buffer);
         std::cout << "The mapping of the '" << shm_name << "' could not be done" << std::endl;
 
         return false;
@@ -204,9 +267,9 @@ bool write_in_buffer(std::vector<float> data, const char *shm_name, bool verbose
     for (int i = 0; i < buffer_size; ++i)
     {
         if (verbose)
-            std::cout << "Softmax op1: " << i + 1 << "/" << data.size() << std::endl;
+            std::cout << "Softmax op1[" << i + 1 << "/" << data.size() << "] = " << data[i] << std::endl;
 
-        *(buffer) = data[i];
+        buffer[i] = data[i];
     }
 
     munmap(buffer, sizeof(float));

@@ -90,14 +90,24 @@ typedef struct axc_shared_mem
 std::vector<float> apply_softmax(std::vector<float> input, bool verbose);
 
 /**
+ * @brief Read data from a specific buffer
+ *
+ * @param shm_name shered memory name
+ * @param size size of the buffer to read
+ * @param verbose activate verbose mode to print out messages
+ * @return std::vector<float> values read from the buffer
+ */
+std::vector<float> read_buffer(const char *shm_name, int size, bool verbose);
+
+/**
  * @brief Write in a specific buffer
- * 
+ *
  * @param data data to write in the buffer
  * @param shm_name shared memory name
  * @param verbose activate verbose mode to print out messages
  * @return bool true if the operation was successfull, otherwise false
  */
-bool write_in_buffer(std::vector<float> data, const char* shm_name, bool verbose);
+bool write_buffer(std::vector<float> data, const char *shm_name, bool verbose);
 
 /**
  * @brief Print out shared memory data when verbose mode is on
