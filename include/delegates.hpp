@@ -10,13 +10,20 @@
 
 #include <ipc.hpp>
 
-
 namespace keras
 {
+  /**
+   * @brief Struct to select the delegate that are enabled for hardware
+   * acceleration of the inference
+   *
+   */
   typedef struct delegate_enabler
   {
+    /* Enable Conv2D */
     bool conv2d;
+    /* Enable fully connected layer multiplication */
     bool fully_connected;
+    /* Enable softmax activation function */
     bool softmax;
   } DelegateEnabler;
 
@@ -71,28 +78,39 @@ protected:
   bool m_verbose;
 };
 
-
 class keras::DelegateConv2D : public Delegate
 {
 public:
   /**
    * @brief Construct a new Delegate Conv2D object
-   * 
+   *
    * @param verbose enable or disable verbose mode
    */
   DelegateConv2D(bool verbose) : Delegate("Conv2D", verbose) {}
   /**
    * @brief Default constructor for a new Delegate Conv2D object
-   * 
+   *
    */
   DelegateConv2D() : Delegate("Conv2D", false) {}
   /**
    * @brief Destroy the Delegate Conv2D object
-   * 
+   *
    */
   ~DelegateConv2D() {}
 
-  std::vector<float> eval(std::vector<float> input, std::vector<float> kernel, int k_size, int stride);
+  /**
+   * @brief Evaluate convolution 2D
+   *
+   * @param input input data to apply convolution
+   * @param kernels kernels to use
+   * @param output result of convolution 2D
+   * @param padding padding type
+   * @param stride stride value
+   */
+  void eval(const std::vector<std::vector<std::vector<float>>> input,
+            std::vector<std::vector<std::vector<std::vector<float>>>> kernels,
+            std::vector<std::vector<std::vector<float>>> output,
+            conv_padding_t padding, int stride);
 };
 
 class keras::DelegateSoftmax : public Delegate
@@ -122,7 +140,7 @@ public:
    * y = exp(x) / sum_reduce(exp(x))
    *
    * @param input vector to perform softmax activation function
-   * @return std::vector<float> result of the softmax
+   * @return std::vector<float> result of softmax function
    */
   std::vector<float> eval(std::vector<float> input);
 };

@@ -1,6 +1,175 @@
 #include <ipc.hpp>
 
 /**
+ * @brief Call back-end to execute convolution 2D
+ *
+ * @param input input data to apply convolution
+ * @param kernel kernel to use
+ * @param k_size kernel dimensions
+ * @param padding padding type
+ * @param stride stride value
+ * @param verbose activate verbose mode to print out messages
+ * @return std::vector<float> result of convolution 2D
+ */
+std::vector<float> apply_conv2d(std::vector<float> input, std::vector<float> kernel, int k_size, conv_padding_t padding, int stride, bool verbose)
+{
+    /* Shared memory for IPC */
+    axc_shared_mem_t *shared_mem;
+    /* Semaphores to lock memory R/W operations */
+    sem_t *mutex_sem;
+    /* File descriptor of the shared memory */
+    int fd_shm;
+
+    /* Get shared memory */
+    fd_shm = shm_open(SHARED_MEM_NAME, O_RDWR, 0);
+
+    if (fd_shm < 0)
+    {
+        close(fd_shm);
+        std::cout << "The device '" << SHARED_MEM_NAME << "' could not open" << std::endl;
+        std::cout << errno << std::endl;
+        exit(-1);
+    }
+
+    /* Ask for memory */
+    shared_mem = (axc_shared_mem_t *)mmap(NULL, sizeof(axc_shared_mem_t),
+                                          PROT_READ | PROT_WRITE, MAP_SHARED, fd_shm, 0);
+
+    if (MAP_FAILED == shared_mem)
+    {
+        std::cout << "The mapping could not be done" << std::endl;
+        exit(-1);
+    }
+
+    /* Mutex sem for shared memory */
+    mutex_sem = sem_open(SEM_READY_SIGNAL_NAME, 0, 0, 0);
+
+    if (SEM_FAILED == mutex_sem)
+    {
+        std::cout << "Ready sem open failed" << std::endl;
+        exit(-1);
+    }
+
+    std::cout << "Semaphores are ready!" << std::endl;
+
+    /* Take control of the shared memory to allocate memory */
+    sem_wait(mutex_sem);
+
+    if (verbose)
+    {
+        std::cout << std::endl
+                  << "Default shared memory" << std::endl;
+        shared_memory_verbose(shared_mem);
+    }
+
+    /* Ask for buffer */
+    shared_mem->op1_size = input.size();
+    shared_mem->op2_size = kernel.size();
+    shared_mem->out_size = input.size();
+    shared_mem->request = AXC_ALLOCATE;
+
+    while (AXC_IDLE != shared_mem->request)
+    {
+        sem_post(mutex_sem);
+        /* Wait 1 us */
+        usleep(1);
+        sem_wait(mutex_sem);
+    }
+
+    if (verbose)
+    {
+        std::cout << std::endl
+                  << "Conv2D request: Allocate memory for buffers" << std::endl;
+        shared_memory_verbose(shared_mem);
+    }
+
+    if (AXC_ERROR == shared_mem->status)
+    {
+        /* Release semaphore */
+        sem_post(mutex_sem);
+
+        munmap(shared_mem, sizeof(axc_shared_mem_t));
+        close(fd_shm);
+
+        std::cout << std::endl
+                  << "Buffer allocation was not successful" << std::endl;
+
+        exit(-1);
+    }
+
+    if (verbose)
+        std::cout << std::endl
+                  << "Writting in the buffers" << std::endl;
+
+    /* Copy data to the buffers */
+    write_buffer(input, SHARED_MEM_OP1_NAME, verbose);
+    write_buffer(kernel, SHARED_MEM_OP2_NAME, verbose);
+
+    if (verbose)
+        std::cout << "Conv2D request: Execute" << std::endl;
+
+    shared_mem->request = AXC_EXECUTE;
+    shared_mem->operation = AXC_CONV2D;
+
+    while (AXC_IDLE != shared_mem->request)
+    {
+        sem_post(mutex_sem);
+        /* Wait 1 us */
+        usleep(1);
+        sem_wait(mutex_sem);
+    }
+
+    /* Get the output of the sofmax function */
+    std::vector<float> output = read_buffer(SHARED_MEM_OUT_NAME, shared_mem->out_size, verbose);
+
+    if (verbose)
+    {
+        std::cout << std::endl
+                  << "Driver response: Buffers were read" << std::endl;
+        shared_memory_verbose(shared_mem);
+
+        std::cout << "Input/Output" << std::endl;
+
+        for (int i = 0; i < shared_mem->op1_size; ++i)
+        {
+            std::cout << i << ": " << input[i] << "/" << output[i] << std::endl;
+        }
+
+        std::cout << std::endl
+                  << "Softmax request: Deallocate buffers" << std::endl;
+    }
+
+    shared_mem->request = AXC_DEALLOCATE;
+
+    while (AXC_IDLE != shared_mem->request)
+    {
+        sem_post(mutex_sem);
+        /* Wait 1 us */
+        usleep(1);
+        sem_wait(mutex_sem);
+    }
+
+    if (verbose)
+    {
+        std::cout << std::endl
+                  << "Driver response: Dellocate memory for buffers" << std::endl;
+        shared_memory_verbose(shared_mem);
+    }
+
+    /* Release semaphore */
+    sem_post(mutex_sem);
+
+    /* Release memory */
+    munmap(shared_mem, sizeof(axc_shared_mem_t));
+    close(fd_shm);
+
+    std::cout << std::endl
+              << "Shared memory was unmapped" << std::endl;
+
+    return output;
+}
+
+/**
  * @brief Call back-end to execute softmax function
  *
  * @param input data to apply softmax
@@ -165,9 +334,6 @@ std::vector<float> apply_softmax(std::vector<float> input, bool verbose)
     munmap(shared_mem, sizeof(axc_shared_mem_t));
     close(fd_shm);
 
-    std::cout << std::endl
-              << "Shared memory was unmapped" << std::endl;
-
     return output;
 }
 
@@ -212,15 +378,14 @@ std::vector<float> read_buffer(const char *shm_name, int size, bool verbose)
     for (int i = 0; i < size; ++i)
     {
         if (verbose)
-            std::cout << "Softmax output: " << i + 1 << "/" << size << std::endl;
+            std::cout << "Value: " << i + 1 << "/" << size << std::endl;
 
         output[i] = buffer[i];
     }
 
-    munmap(buffer, sizeof(float));
+    munmap(buffer, sizeof(float) * size);
+    shm_unlink(shm_name);
     close(fd_buffer);
-
-    std::cout << "Shared memory for buffer '" << shm_name << "' was unmapped" << std::endl;
 
     return output;
 }
@@ -267,12 +432,13 @@ bool write_buffer(std::vector<float> data, const char *shm_name, bool verbose)
     for (int i = 0; i < buffer_size; ++i)
     {
         if (verbose)
-            std::cout << "Softmax op1[" << i + 1 << "/" << data.size() << "] = " << data[i] << std::endl;
+            std::cout << "Value[" << i + 1 << "/" << data.size() << "] = " << data[i] << std::endl;
 
         buffer[i] = data[i];
     }
 
-    munmap(buffer, sizeof(float));
+    munmap(buffer, sizeof(float) * buffer_size);
+    shm_unlink(shm_name);
     close(fd_buffer);
 
     std::cout << "Shared memory for buffer '" << shm_name << "' was unmapped" << std::endl;

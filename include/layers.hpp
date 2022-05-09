@@ -52,8 +52,14 @@ protected:
 class keras::LayerActivation : public Layer
 {
 public:
-  LayerActivation(bool verbose) : Layer("Activation", verbose) {}
-  LayerActivation() : Layer("Activation") {}
+  LayerActivation(bool verbose) : Layer("Activation", verbose) {
+    m_delegate = nullptr;
+  }
+
+  LayerActivation() : Layer("Activation") {
+    m_delegate = nullptr;
+  }
+
   ~LayerActivation();
 
   void load_weights(std::ifstream &fin, DelegateEnabler &enabler);
@@ -138,7 +144,7 @@ class keras::LayerConv2D : public Layer
 public:
   LayerConv2D(bool verbose) : Layer("Conv2D")
   {
-    this->verbose = verbose;
+    this->m_verbose = verbose;
   }
 
   LayerConv2D() : Layer("Conv2D") {}
@@ -147,7 +153,6 @@ public:
   keras::DataChunk *compute_output(keras::DataChunk *);
   std::vector<std::vector<std::vector<std::vector<float>>>> m_kernels; // kernel, depth, rows, cols
   std::vector<float> m_bias;                                           // kernel
-  bool verbose;
 
   virtual unsigned int get_input_rows() const
   {
@@ -169,6 +174,7 @@ public:
   int m_depth;
   int m_rows;
   int m_cols;
+  DelegateConv2D *m_delegate;
 };
 
 class keras::LayerDense : public Layer

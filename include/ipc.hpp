@@ -81,6 +81,29 @@ typedef struct axc_shared_mem
 } axc_shared_mem_t;
 
 /**
+ * @brief Supported padding modes by the convolution driver
+ *
+ */
+typedef enum conv_padding
+{
+    CONV_PADDING_VALID,
+    CONV_PADDING_SAME
+} conv_padding_t;
+
+/**
+ * @brief Call back-end to execute convolution 2D
+ *
+ * @param input input data to apply convolution
+ * @param kernel kernel to use
+ * @param k_size kernel dimensions
+ * @param padding padding type
+ * @param stride stride value
+ * @param verbose activate verbose mode to print out messages
+ * @return std::vector<float> result of convolution 2D
+ */
+std::vector<float> apply_conv2d(std::vector<float> input, std::vector<float> kernel, int k_size, conv_padding_t padding, int stride, bool verbose);
+
+/**
  * @brief Call back-end to execute softmax function
  *
  * @param input data to apply softmax

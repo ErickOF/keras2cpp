@@ -1,6 +1,5 @@
 #include <layers.hpp>
 
-
 void keras::missing_activation_impl(const std::string &act)
 {
   std::cout << "Activation " << act << " not defined!" << std::endl;
@@ -91,7 +90,7 @@ std::vector<std::vector<float>> keras::conv_single_depth_same(
 
 /**
  * @brief Destroy the Activation Layer object
- * 
+ *
  */
 keras::LayerActivation::~LayerActivation()
 {
@@ -101,7 +100,7 @@ keras::LayerActivation::~LayerActivation()
 
 /**
  * @brief Load the weights from the input file
- * 
+ *
  * @param fin input file to read
  * @param enabler delegate to enable
  */
@@ -125,9 +124,9 @@ void keras::LayerActivation::load_weights(std::ifstream &fin, DelegateEnabler &e
 
 /**
  * @brief Compute the activation function
- * 
+ *
  * @param dc data chunk to apply the activation function
- * @return keras::DataChunk* 
+ * @return keras::DataChunk*
  */
 keras::DataChunk *keras::LayerActivation::compute_output(keras::DataChunk *dc)
 {
@@ -196,7 +195,9 @@ keras::DataChunk *keras::LayerActivation::compute_output(keras::DataChunk *dc)
         {
           y[k] /= sum;
         }
-      } else {
+      }
+      else
+      {
         y = m_delegate->eval(y);
       }
     }
@@ -237,7 +238,6 @@ keras::DataChunk *keras::LayerActivation::compute_output(keras::DataChunk *dc)
   return dc;
 }
 
-
 void keras::LayerConv2D::load_weights(std::ifstream &fin, DelegateEnabler &enabler)
 {
   char tmp_char = ' ';
@@ -253,9 +253,18 @@ void keras::LayerConv2D::load_weights(std::ifstream &fin, DelegateEnabler &enabl
     skip = true;
   }
 
+  /** Create the delegate if need it **/
+  if (enabler.conv2d)
+    m_delegate = new DelegateConv2D(m_verbose);
+
   if (m_verbose)
+  {
     std::cout << "LayerConv2D " << m_kernels_cnt << "x" << m_depth << "x"
-      << m_rows << "x" << m_cols << " border_mode " << m_border_mode << std::endl;
+              << m_rows << "x" << m_cols << " border_mode " << m_border_mode << std::endl;
+
+    if (m_delegate != nullptr)
+      std::cout << "Delegate was added" << std::endl;
+  }
 
   // Reading kernel weights
   for (int k = 0; k < m_kernels_cnt; ++k)
@@ -460,32 +469,42 @@ keras::DataChunk *keras::LayerConv2D::compute_output(keras::DataChunk *dc)
     y_ret.push_back(tmp);
   }
 
-  if (m_verbose) {
+  if (m_verbose)
+  {
     std::cout << "y_ret: " << y_ret.size() << "," << y_ret[0].size() << "," << y_ret[0][0].size() << std::endl;
     std::cout << "kernel: " << m_kernels.size() << "x" << m_kernels[0].size() << "x" << m_kernels[0][0].size() << "x" << m_kernels[0][0][0].size() << std::endl;
     std::cout << "img: " << im.size() << "x" << im[0].size() << "x" << im[0][0].size() << std::endl;
   }
 
-  for (unsigned int j = 0; j < m_kernels.size(); ++j)
-  { // loop over kernels
-    for (unsigned int m = 0; m < im.size(); ++m)
-    { // loop over image depth
-      std::vector<std::vector<float>> tmp_w = (m_border_mode == "valid") ? keras::conv_single_depth_valid(im[m], m_kernels[j][m]) : keras::conv_single_depth_same(im[m], m_kernels[j][m]);
+  if (m_delegate)
+  {
+    m_delegate->eval(im, m_kernels, y_ret,
+      (m_border_mode == "valid") ? CONV_PADDING_VALID : CONV_PADDING_SAME, 0);
+  }
+  else
+  {
 
-      for (unsigned int x = 0; x < tmp_w.size(); ++x)
-      {
-        for (unsigned int y = 0; y < tmp_w[0].size(); ++y)
+    for (unsigned int j = 0; j < m_kernels.size(); ++j)
+    { // loop over kernels
+      for (unsigned int m = 0; m < im.size(); ++m)
+      { // loop over image depth
+        std::vector<std::vector<float>> tmp_w = (m_border_mode == "valid") ? keras::conv_single_depth_valid(im[m], m_kernels[j][m]) : keras::conv_single_depth_same(im[m], m_kernels[j][m]);
+
+        for (unsigned int x = 0; x < tmp_w.size(); ++x)
         {
-          y_ret[j][x][y] += tmp_w[x][y];
+          for (unsigned int y = 0; y < tmp_w[0].size(); ++y)
+          {
+            y_ret[j][x][y] += tmp_w[x][y];
+          }
         }
       }
-    }
 
-    for (unsigned int x = 0; x < y_ret[0].size(); ++x)
-    {
-      for (unsigned int y = 0; y < y_ret[0][0].size(); ++y)
+      for (unsigned int x = 0; x < y_ret[0].size(); ++x)
       {
-        y_ret[j][x][y] += m_bias[j];
+        for (unsigned int y = 0; y < y_ret[0][0].size(); ++y)
+        {
+          y_ret[j][x][y] += m_bias[j];
+        }
       }
     }
   }
