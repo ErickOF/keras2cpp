@@ -4,14 +4,16 @@
  * @brief Call back-end to execute convolution 2D
  *
  * @param input input data to apply convolution
- * @param kernel kernel to use
- * @param k_size kernel dimensions
- * @param padding padding type
- * @param stride stride value
+ * @param kernels kernels to use
+ * @param params convolution parameters
  * @param verbose activate verbose mode to print out messages
  * @return std::vector<float> result of convolution 2D
  */
-std::vector<float> apply_conv2d(std::vector<float> input, std::vector<float> kernel, int k_size, conv_padding_t padding, int stride, bool verbose)
+std::vector<float> apply_conv2d(
+    std::vector<float> input,
+    std::vector<float> kernels,
+    axc_delegate_conv_params_t *params,
+    bool verbose)
 {
     /* Shared memory for IPC */
     axc_shared_mem_t *shared_mem;
@@ -50,7 +52,8 @@ std::vector<float> apply_conv2d(std::vector<float> input, std::vector<float> ker
         exit(-1);
     }
 
-    std::cout << "Semaphores are ready!" << std::endl;
+    if (verbose)
+        std::cout << "Semaphores are ready!" << std::endl;
 
     /* Take control of the shared memory to allocate memory */
     sem_wait(mutex_sem);
@@ -62,10 +65,11 @@ std::vector<float> apply_conv2d(std::vector<float> input, std::vector<float> ker
         shared_memory_verbose(shared_mem);
     }
 
-    /* Ask for buffer */
+    /* Ask for buffers */
     shared_mem->op1_size = input.size();
-    shared_mem->op2_size = kernel.size();
-    shared_mem->out_size = input.size();
+    shared_mem->op2_size = kernels.size();
+    shared_mem->out_size = params->num_kernels * params->output_height * params->output_width;
+    shared_mem->params_size = sizeof(axc_delegate_conv_params_t);
     shared_mem->request = AXC_ALLOCATE;
 
     while (AXC_IDLE != shared_mem->request)
@@ -102,8 +106,9 @@ std::vector<float> apply_conv2d(std::vector<float> input, std::vector<float> ker
                   << "Writting in the buffers" << std::endl;
 
     /* Copy data to the buffers */
-    write_buffer(input, SHARED_MEM_OP1_NAME, verbose);
-    write_buffer(kernel, SHARED_MEM_OP2_NAME, verbose);
+    write_buffer<std::vector<float>, float>(input, input.size(), SHARED_MEM_OP1_NAME, verbose);
+    write_buffer<std::vector<float>, float>(kernels, kernels.size(), SHARED_MEM_OP2_NAME, verbose);
+    write_buffer<char *, char>((char *)params, sizeof(axc_delegate_conv_params_t), SHARED_MEM_PARAMS_NAME, verbose);
 
     if (verbose)
         std::cout << "Conv2D request: Execute" << std::endl;
@@ -163,8 +168,9 @@ std::vector<float> apply_conv2d(std::vector<float> input, std::vector<float> ker
     munmap(shared_mem, sizeof(axc_shared_mem_t));
     close(fd_shm);
 
-    std::cout << std::endl
-              << "Shared memory was unmapped" << std::endl;
+    if (verbose)
+        std::cout << std::endl
+                  << "Shared memory was unmapped" << std::endl;
 
     return output;
 }
@@ -215,7 +221,8 @@ std::vector<float> apply_softmax(std::vector<float> input, bool verbose)
         exit(-1);
     }
 
-    std::cout << "Semaphores are ready!" << std::endl;
+    if (verbose)
+        std::cout << "Semaphores are ready!" << std::endl;
 
     /* Take control of the shared memory to allocate memory */
     sem_wait(mutex_sem);
@@ -231,6 +238,7 @@ std::vector<float> apply_softmax(std::vector<float> input, bool verbose)
     shared_mem->op1_size = input.size();
     shared_mem->op2_size = 0;
     shared_mem->out_size = input.size();
+    shared_mem->params_size = 0;
     shared_mem->request = AXC_ALLOCATE;
 
     if (verbose)
@@ -274,7 +282,7 @@ std::vector<float> apply_softmax(std::vector<float> input, bool verbose)
                   << "Writting in the buffers" << std::endl;
 
     /* Copy data to the buffers */
-    write_buffer(input, SHARED_MEM_OP1_NAME, verbose);
+    write_buffer<std::vector<float>, float>(input, input.size(), SHARED_MEM_OP1_NAME, verbose);
 
     if (verbose)
         std::cout << "Softmax request: Execute" << std::endl;
@@ -395,17 +403,17 @@ std::vector<float> read_buffer(const char *shm_name, int size, bool verbose)
  *
  * @param data data to write in the buffer
  * @param shm_name shared memory name
+ * @param size size of the memory to write
  * @param verbose activate verbose mode to print out messages
  * @return bool true if the operation was successfull, otherwise false
  */
-bool write_buffer(std::vector<float> data, const char *shm_name, bool verbose)
+template <typename I, typename T>
+bool write_buffer(I data, size_t size, const char *shm_name, bool verbose)
 {
-    const int buffer_size = data.size();
-
     /* File descriptor of the shared memory */
     int fd_buffer;
     /* Shared memory address for the buffer */
-    float *buffer;
+    T *buffer;
 
     /* Get shared memory */
     fd_buffer = shm_open(shm_name, O_RDWR, 0);
@@ -418,7 +426,7 @@ bool write_buffer(std::vector<float> data, const char *shm_name, bool verbose)
     }
 
     /* Ask for memory */
-    buffer = (float *)mmap(NULL, sizeof(float) * buffer_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd_buffer, 0);
+    buffer = (T *)mmap(NULL, sizeof(T) * size, PROT_READ | PROT_WRITE, MAP_SHARED, fd_buffer, 0);
 
     if (MAP_FAILED == buffer)
     {
@@ -429,19 +437,20 @@ bool write_buffer(std::vector<float> data, const char *shm_name, bool verbose)
     }
 
     /* Copy data to the buffers */
-    for (int i = 0; i < buffer_size; ++i)
+    for (int i = 0; i < size; ++i)
     {
         if (verbose)
-            std::cout << "Value[" << i + 1 << "/" << data.size() << "] = " << data[i] << std::endl;
+            std::cout << "Value[" << i + 1 << "/" << size << "] = " << data[i] << std::endl;
 
         buffer[i] = data[i];
     }
 
-    munmap(buffer, sizeof(float) * buffer_size);
+    munmap(buffer, sizeof(T) * size);
     shm_unlink(shm_name);
     close(fd_buffer);
 
-    std::cout << "Shared memory for buffer '" << shm_name << "' was unmapped" << std::endl;
+    if (verbose)
+        std::cout << "Shared memory for buffer '" << shm_name << "' was unmapped" << std::endl;
 
     return true;
 }
@@ -454,12 +463,14 @@ bool write_buffer(std::vector<float> data, const char *shm_name, bool verbose)
 void shared_memory_verbose(axc_shared_mem_t *shmem)
 {
     std::cout << "Shared memory values: " << std::endl;
+    std::cout << "operation: " << shmem->operation << std::endl;
+    std::cout << "request: " << shmem->request << std::endl;
+    std::cout << "request status: " << shmem->status << std::endl;
     std::cout << "op1: " << shmem->op1 << std::endl;
     std::cout << "op1 size: " << shmem->op1_size << std::endl;
     std::cout << "op2: " << shmem->op2 << std::endl;
     std::cout << "op2 size: " << shmem->op2_size << std::endl;
     std::cout << "out: " << shmem->output << std::endl;
     std::cout << "out size: " << shmem->out_size << std::endl;
-    std::cout << "request: " << shmem->request << std::endl;
-    std::cout << "request status: " << shmem->status << std::endl;
+    std::cout << "params size: " << shmem->params_size << std::endl;
 }

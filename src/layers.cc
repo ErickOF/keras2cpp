@@ -262,7 +262,7 @@ void keras::LayerConv2D::load_weights(std::ifstream &fin, DelegateEnabler &enabl
     std::cout << "LayerConv2D " << m_kernels_cnt << "x" << m_depth << "x"
               << m_rows << "x" << m_cols << " border_mode " << m_border_mode << std::endl;
 
-    if (m_delegate != nullptr)
+    if (nullptr != m_delegate)
       std::cout << "Delegate was added" << std::endl;
   }
 
@@ -476,14 +476,24 @@ keras::DataChunk *keras::LayerConv2D::compute_output(keras::DataChunk *dc)
     std::cout << "img: " << im.size() << "x" << im[0].size() << "x" << im[0][0].size() << std::endl;
   }
 
-  if (m_delegate)
+  if (nullptr != m_delegate)
   {
-    m_delegate->eval(im, m_kernels, y_ret,
-      (m_border_mode == "valid") ? CONV_PADDING_VALID : CONV_PADDING_SAME, 0);
+    axc_delegate_conv_params_t params = {
+        .input_height = (uint32_t)im[0].size(),
+        .output_height = (uint32_t)size_x,
+        .input_width = (uint32_t)im[0][0].size(),
+        .output_width = (uint32_t)size_y,
+        .kernel_size = (uint8_t)m_kernels[0][0][0].size(),
+        .num_kernels = (uint16_t)m_kernels.size(),
+        .padding_type = (m_border_mode == "valid") ? CONV_PADDING_VALID : CONV_PADDING_SAME,
+        .stride_x = 0,
+        .stride_y = 0
+    };
+
+    m_delegate->eval(im, m_kernels, y_ret, &params);
   }
   else
   {
-
     for (unsigned int j = 0; j < m_kernels.size(); ++j)
     { // loop over kernels
       for (unsigned int m = 0; m < im.size(); ++m)

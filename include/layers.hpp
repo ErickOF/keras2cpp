@@ -145,9 +145,12 @@ public:
   LayerConv2D(bool verbose) : Layer("Conv2D")
   {
     this->m_verbose = verbose;
+    this->m_delegate = nullptr;
   }
 
-  LayerConv2D() : Layer("Conv2D") {}
+  LayerConv2D() : Layer("Conv2D") {
+    this->m_delegate = nullptr;
+  }
 
   void load_weights(std::ifstream &fin, DelegateEnabler &enabler);
   keras::DataChunk *compute_output(keras::DataChunk *);

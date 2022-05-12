@@ -16,6 +16,31 @@
 #define SHARED_MEM_OUT_NAME "axc-shared-memory-out"
 
 /**
+ * @brief Represents the convolution params passed by the delegate
+ *
+ */
+typedef struct axc_delegate_conv_params
+{
+    /* Input height of the data */
+    uint32_t input_height;
+    /* Output height of the data */
+    uint32_t output_height;
+    /* Input width of the data */
+    uint32_t input_width;
+    /* Output width of the data */
+    uint32_t output_width;
+    /* Size of the kernel */
+    uint8_t kernel_size;
+    /* Number of kernels */
+    uint16_t num_kernels;
+    /* Type of padding to apply */
+    uint8_t padding_type;
+    /* Size of the stride {x, y} */
+    uint8_t stride_x;
+    uint8_t stride_y;
+} axc_delegate_conv_params_t;
+
+/**
  * @brief Represents the operations supported by the accelerator
  *
  */
@@ -60,6 +85,10 @@ typedef enum axc_user_request
  */
 typedef struct axc_shared_mem
 {
+    /* Additional parameters */
+    char *params;
+    /* Additional parameters size */
+    uint32_t params_size;
     /* First operator */
     float *op1;
     /* Size of the first operator */
@@ -91,17 +120,20 @@ typedef enum conv_padding
 } conv_padding_t;
 
 /**
+ * @brief
  * @brief Call back-end to execute convolution 2D
  *
  * @param input input data to apply convolution
- * @param kernel kernel to use
- * @param k_size kernel dimensions
- * @param padding padding type
- * @param stride stride value
+ * @param kernels kernels to use
+ * @param params convolution parameters
  * @param verbose activate verbose mode to print out messages
  * @return std::vector<float> result of convolution 2D
  */
-std::vector<float> apply_conv2d(std::vector<float> input, std::vector<float> kernel, int k_size, conv_padding_t padding, int stride, bool verbose);
+std::vector<float> apply_conv2d(
+    std::vector<float> input,
+    std::vector<float> kernels,
+    axc_delegate_conv_params_t *params,
+    bool verbose);
 
 /**
  * @brief Call back-end to execute softmax function
@@ -127,10 +159,12 @@ std::vector<float> read_buffer(const char *shm_name, int size, bool verbose);
  *
  * @param data data to write in the buffer
  * @param shm_name shared memory name
+ * @param size size of the memory to write
  * @param verbose activate verbose mode to print out messages
  * @return bool true if the operation was successfull, otherwise false
  */
-bool write_buffer(std::vector<float> data, const char *shm_name, bool verbose);
+template <typename I, typename T>
+bool write_buffer(I data, size_t size, const char *shm_name, bool verbose);
 
 /**
  * @brief Print out shared memory data when verbose mode is on

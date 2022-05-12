@@ -104,13 +104,12 @@ public:
    * @param input input data to apply convolution
    * @param kernels kernels to use
    * @param output result of convolution 2D
-   * @param padding padding type
-   * @param stride stride value
+   * @param params convolution params
    */
   void eval(const std::vector<std::vector<std::vector<float>>> input,
             std::vector<std::vector<std::vector<std::vector<float>>>> kernels,
             std::vector<std::vector<std::vector<float>>> output,
-            conv_padding_t padding, int stride);
+            axc_delegate_conv_params_t *params);
 };
 
 class keras::DelegateSoftmax : public Delegate
