@@ -29,7 +29,7 @@ namespace keras
 
   class Delegate;
   class DelegateConv2D;
-  // class DelegateFullyConnected;
+  class DelegateFullyConnected;
   class DelegateSoftmax;
 }
 
@@ -110,6 +110,39 @@ public:
             std::vector<std::vector<std::vector<std::vector<float>>>> kernels,
             std::vector<std::vector<std::vector<float>>> output,
             axc_delegate_conv_params_t *params);
+};
+
+class keras::DelegateFullyConnected : public Delegate
+{
+public:
+  /**
+   * @brief Construct a new Delegate FullyConnected object
+   *
+   * @param verbose enable or disable verbose mode
+   */
+  DelegateFullyConnected(bool verbose) : Delegate("FullyConnected", verbose) {}
+  /**
+   * @brief Default constructor for a new Delegate FullyConnected object
+   *
+   */
+  DelegateFullyConnected() : Delegate("FullyConnected", false) {}
+  /**
+   * @brief Destroy the Delegate Fully Connected object
+   *
+   */
+  ~DelegateFullyConnected() {}
+
+  /**
+   * @brief Evaluate fully connected layer
+   *
+   * @param input input data to apply convolution
+   * @param weights weights to use
+   * @param output result of the matrix-matrix multiplication
+   * @param params fully connected params
+   */
+  void eval(const std::vector<float> input,
+            std::vector<std::vector<float>> weights,
+            float *output, axc_delegate_fully_connected_params_t *params);
 };
 
 class keras::DelegateSoftmax : public Delegate

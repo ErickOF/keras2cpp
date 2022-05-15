@@ -94,7 +94,7 @@ std::vector<std::vector<float>> keras::conv_single_depth_same(
  */
 keras::LayerActivation::~LayerActivation()
 {
-  if (m_delegate != nullptr)
+  if (nullptr != m_delegate)
     delete m_delegate;
 }
 
@@ -110,14 +110,14 @@ void keras::LayerActivation::load_weights(std::ifstream &fin, DelegateEnabler &e
   fin >> m_activation_type;
 
   /** Create the delegate if need it **/
-  if (enabler.softmax && (m_activation_type == "softmax"))
+  if (enabler.softmax && ("softmax" == m_activation_type))
     m_delegate = new DelegateSoftmax(m_verbose);
 
   if (m_verbose)
   {
     std::cout << "Activation type " << m_activation_type << std::endl;
 
-    if (m_delegate != nullptr)
+    if (nullptr == m_delegate)
       std::cout << "Delegate was added" << std::endl;
   }
 }
@@ -330,8 +330,15 @@ void keras::LayerDense::load_weights(std::ifstream &fin, DelegateEnabler &enable
   float tmp_float;
   char tmp_char = ' ';
 
+  if (enabler.fully_connected)
+  {
+    m_delegate = new DelegateFullyConnected(m_verbose);
+  }
+
   if (m_verbose)
+  {
     std::cout << "Inputs: " << m_input_cnt << ", neurons: " << m_neurons << std::endl;
+  }
 
   for (int i = 0; i < m_input_cnt; ++i)
   {
@@ -363,6 +370,9 @@ void keras::LayerDense::load_weights(std::ifstream &fin, DelegateEnabler &enable
 
   if (m_verbose)
     std::cout << "bias " << m_bias.size() << std::endl;
+
+    if (nullptr != m_delegate)
+      std::cout << "Delegate was added" << std::endl;
 }
 
 keras::DataChunk *keras::LayerFlatten::compute_output(keras::DataChunk *dc)
@@ -527,9 +537,12 @@ keras::DataChunk *keras::LayerConv2D::compute_output(keras::DataChunk *dc)
 
 keras::DataChunk *keras::LayerDense::compute_output(keras::DataChunk *dc)
 {
-  // cout << "weights: input size " << m_weights.size() << endl;
-  // cout << "weights: neurons size " << m_weights[0].size() << endl;
-  // cout << "bias " << m_bias.size() << endl;
+  if (m_verbose)
+    std::cout << "Running: " << this->get_name() << std::endl;
+    std::cout << "weights: input size " << m_weights.size() << std::endl;
+    std::cout << "weights: neurons size " << m_weights[0].size() << std::endl;
+    std::cout << "bias " << m_bias.size() << std::endl;
+
   size_t size = m_weights[0].size();
   size_t size8 = size >> 3;
   keras::DataChunkFlat *out = new DataChunkFlat(size, 0);
@@ -537,36 +550,52 @@ keras::DataChunk *keras::LayerDense::compute_output(keras::DataChunk *dc)
 
   auto const &im = dc->get_1d();
 
-  for (size_t j = 0; j < m_weights.size(); ++j)
-  { // iter over input
-    const float *w = m_weights[j].data();
-    float p = im[j];
-    size_t k = 0;
+  if (nullptr != m_delegate)
+  {
+    axc_delegate_fully_connected_params_t params = {
+      .input1_size = (uint32_t) im.size(),
+      .input2_height = (uint32_t) m_weights.size(),
+      .input2_width = (uint32_t) m_weights.size()
+    };
 
-    for (size_t i = 0; i < size8; ++i)
-    {                       // iter over neurons
-      y_ret[k] += w[k] * p; // vectorize if you can
-      y_ret[k + 1] += w[k + 1] * p;
-      y_ret[k + 2] += w[k + 2] * p;
-      y_ret[k + 3] += w[k + 3] * p;
-      y_ret[k + 4] += w[k + 4] * p;
-      y_ret[k + 5] += w[k + 5] * p;
-      y_ret[k + 6] += w[k + 6] * p;
-      y_ret[k + 7] += w[k + 7] * p;
-      k += 8;
+    m_delegate->eval(im, m_weights, y_ret, &params);
+  }
+  else
+  {
+    for (size_t j = 0; j < m_weights.size(); ++j)
+    { // iter over input
+      const float *w = m_weights[j].data();
+      float p = im[j];
+      size_t k = 0;
+
+      for (size_t i = 0; i < size8; ++i)
+      {                       // iter over neurons
+        y_ret[k] += w[k] * p; // vectorize if you can
+        y_ret[k + 1] += w[k + 1] * p;
+        y_ret[k + 2] += w[k + 2] * p;
+        y_ret[k + 3] += w[k + 3] * p;
+        y_ret[k + 4] += w[k + 4] * p;
+        y_ret[k + 5] += w[k + 5] * p;
+        y_ret[k + 6] += w[k + 6] * p;
+        y_ret[k + 7] += w[k + 7] * p;
+        k += 8;
+      }
+
+      while (k < size)
+      {
+        y_ret[k] += w[k] * p;
+        ++k;
+      }
     }
 
-    while (k < size)
-    {
-      y_ret[k] += w[k] * p;
-      ++k;
+    for (size_t i = 0; i < size; ++i)
+    { // add biases
+      y_ret[i] += m_bias[i];
     }
   }
 
-  for (size_t i = 0; i < size; ++i)
-  { // add biases
-    y_ret[i] += m_bias[i];
-  }
+  if (m_verbose)
+    std::cout << "Layer done" << std::endl;
 
   return out;
 }

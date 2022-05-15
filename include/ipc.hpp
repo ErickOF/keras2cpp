@@ -41,6 +41,21 @@ typedef struct axc_delegate_conv_params
 } axc_delegate_conv_params_t;
 
 /**
+ * @brief Represents the fully connected layer parameters passed by the
+ * delegate
+ *
+ */
+typedef struct axc_delegate_fully_connected_params
+{
+    /* Size of the input 1 */
+    uint32_t input1_size;
+    /* Input 2 height of the weights */
+    uint32_t input2_height;
+    /* Input 2 width of the weights */
+    uint32_t input2_width;
+} axc_delegate_fully_connected_params_t;
+
+/**
  * @brief Represents the operations supported by the accelerator
  *
  */
@@ -120,7 +135,6 @@ typedef enum conv_padding
 } conv_padding_t;
 
 /**
- * @brief
  * @brief Call back-end to execute convolution 2D
  *
  * @param input input data to apply convolution
@@ -134,6 +148,20 @@ std::vector<float> apply_conv2d(
     std::vector<float> kernels,
     axc_delegate_conv_params_t *params,
     bool verbose);
+
+/**
+ * @brief Call back-end to execute fully connected
+ *
+ * @param input input data to apply matrix-matrix multiplication
+ * @param weights weights
+ * @param params fully connected parameters
+ * @param verbose activate verbose mode to print out messages
+ * @return std::vector<float> result of matrix-matrix multiplication
+ */
+std::vector<float> apply_fully_connected(std::vector<float> input,
+                                         std::vector<float> weights,
+                                         axc_delegate_fully_connected_params_t *params,
+                                         bool verbose);
 
 /**
  * @brief Call back-end to execute softmax function

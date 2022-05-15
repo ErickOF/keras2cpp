@@ -25,8 +25,9 @@ int main(int argc, char *argv[])
 
   // Add delegates
   keras::DelegateEnabler enabler;
-  enabler.softmax = true;
   enabler.conv2d = true;
+  enabler.fully_connected = true;
+  enabler.softmax = true;
 
   // Construct network
   keras::KerasModel m(dumped_cnn, verbose, enabler);

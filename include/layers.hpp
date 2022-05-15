@@ -183,8 +183,13 @@ public:
 class keras::LayerDense : public Layer
 {
 public:
-  LayerDense(bool verbose) : Layer("Dense", verbose) {}
-  LayerDense() : Layer("Dense") {}
+  LayerDense(bool verbose) : Layer("Dense", verbose) {
+    m_delegate = nullptr;
+  }
+
+  LayerDense() : Layer("Dense") {
+    m_delegate = nullptr;
+  }
 
   void load_weights(std::ifstream &fin, DelegateEnabler &enabler);
   keras::DataChunk *compute_output(keras::DataChunk *);
@@ -208,6 +213,7 @@ public:
 
   int m_input_cnt;
   int m_neurons;
+  DelegateFullyConnected *m_delegate;
 };
 
 class keras::LayerInput : public Layer
