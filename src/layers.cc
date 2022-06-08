@@ -117,8 +117,15 @@ void keras::LayerActivation::load_weights(std::ifstream &fin, DelegateEnabler &e
   {
     std::cout << "Activation type " << m_activation_type << std::endl;
 
-    if (nullptr == m_delegate)
+    if (nullptr != m_delegate)
+    {
       std::cout << "Delegate was added" << std::endl;
+      
+      if (m_delegate->has_accel())
+        std::cout << "Accelerator detected! Running on accelerator" << std::endl;
+      else
+        std::cout << "No accelerator detected! Running on CPU" << std::endl;
+    }
   }
 }
 
@@ -181,8 +188,18 @@ keras::DataChunk *keras::LayerActivation::compute_output(keras::DataChunk *dc)
     /** Apply Softmax function **/
     else if (m_activation_type == "softmax")
     {
-      if (m_delegate == nullptr)
+      if (nullptr != m_delegate && m_delegate->has_accel())
       {
+        if (m_verbose)
+          std::cout << "Delegate and accelerator found. Running on accelerator..." << std::endl;
+
+        y = m_delegate->eval(y);
+      }
+      else
+      {
+        if (m_verbose && nullptr != m_delegate)
+          std::cout << "Delegate found but not accelerator. Running on CPU..." << std::endl;
+
         float sum = 0.0;
 
         for (unsigned int k = 0; k < y.size(); ++k)
@@ -195,10 +212,6 @@ keras::DataChunk *keras::LayerActivation::compute_output(keras::DataChunk *dc)
         {
           y[k] /= sum;
         }
-      }
-      else
-      {
-        y = m_delegate->eval(y);
       }
     }
     /** Apply sigmoid function **/
@@ -263,7 +276,14 @@ void keras::LayerConv2D::load_weights(std::ifstream &fin, DelegateEnabler &enabl
               << m_rows << "x" << m_cols << " border_mode " << m_border_mode << std::endl;
 
     if (nullptr != m_delegate)
+    {
       std::cout << "Delegate was added" << std::endl;
+      
+      if (m_delegate->has_accel())
+        std::cout << "Accelerator detected! Running on accelerator" << std::endl;
+      else
+        std::cout << "No accelerator detected! Running on CPU" << std::endl;
+    }
   }
 
   // Reading kernel weights
@@ -336,9 +356,7 @@ void keras::LayerDense::load_weights(std::ifstream &fin, DelegateEnabler &enable
   }
 
   if (m_verbose)
-  {
     std::cout << "Inputs: " << m_input_cnt << ", neurons: " << m_neurons << std::endl;
-  }
 
   for (int i = 0; i < m_input_cnt; ++i)
   {
@@ -369,10 +387,19 @@ void keras::LayerDense::load_weights(std::ifstream &fin, DelegateEnabler &enable
   fin >> tmp_char; // for ']'
 
   if (m_verbose)
+  {
     std::cout << "bias " << m_bias.size() << std::endl;
 
     if (nullptr != m_delegate)
+    {
       std::cout << "Delegate was added" << std::endl;
+      
+      if (m_delegate->has_accel())
+        std::cout << "Accelerator detected! Running on accelerator" << std::endl;
+      else
+        std::cout << "No accelerator detected! Running on CPU" << std::endl;
+    }
+  }
 }
 
 keras::DataChunk *keras::LayerFlatten::compute_output(keras::DataChunk *dc)
@@ -486,8 +513,11 @@ keras::DataChunk *keras::LayerConv2D::compute_output(keras::DataChunk *dc)
     std::cout << "img: " << im.size() << "x" << im[0].size() << "x" << im[0][0].size() << std::endl;
   }
 
-  if (nullptr != m_delegate)
+  if (nullptr != m_delegate && m_delegate->has_accel())
   {
+    if (m_verbose)
+      std::cout << "Delegate and accelerator found. Running on accelerator..." << std::endl;
+
     axc_delegate_conv_params_t params = {
         .input_height = (uint32_t)im[0].size(),
         .output_height = (uint32_t)size_x,
@@ -504,6 +534,9 @@ keras::DataChunk *keras::LayerConv2D::compute_output(keras::DataChunk *dc)
   }
   else
   {
+    if (m_verbose && nullptr != m_delegate)
+      std::cout << "Delegate found but not accelerator. Running on CPU..." << std::endl;
+
     for (unsigned int j = 0; j < m_kernels.size(); ++j)
     { // loop over kernels
       for (unsigned int m = 0; m < im.size(); ++m)
@@ -538,10 +571,12 @@ keras::DataChunk *keras::LayerConv2D::compute_output(keras::DataChunk *dc)
 keras::DataChunk *keras::LayerDense::compute_output(keras::DataChunk *dc)
 {
   if (m_verbose)
+  {
     std::cout << "Running: " << this->get_name() << std::endl;
     std::cout << "weights: input size " << m_weights.size() << std::endl;
     std::cout << "weights: neurons size " << m_weights[0].size() << std::endl;
     std::cout << "bias " << m_bias.size() << std::endl;
+  }
 
   size_t size = m_weights[0].size();
   size_t size8 = size >> 3;
@@ -550,8 +585,11 @@ keras::DataChunk *keras::LayerDense::compute_output(keras::DataChunk *dc)
 
   auto const &im = dc->get_1d();
 
-  if (nullptr != m_delegate)
+  if (nullptr != m_delegate && m_delegate->has_accel())
   {
+    if (m_verbose)
+      std::cout << "Delegate and accelerator found. Running on accelerator..." << std::endl;
+
     axc_delegate_fully_connected_params_t params = {
       .input1_size = (uint32_t) im.size(),
       .input2_height = (uint32_t) m_weights.size(),
@@ -561,7 +599,10 @@ keras::DataChunk *keras::LayerDense::compute_output(keras::DataChunk *dc)
     m_delegate->eval(im, m_weights, y_ret, &params);
   }
   else
-  {
+  {    
+    if (m_verbose && nullptr != m_delegate)
+        std::cout << "Delegate found but not accelerator. Running on CPU..." << std::endl;
+
     for (size_t j = 0; j < m_weights.size(); ++j)
     { // iter over input
       const float *w = m_weights[j].data();

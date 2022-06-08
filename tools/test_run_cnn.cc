@@ -4,10 +4,11 @@
 
 int main(int argc, char *argv[])
 {
-  if (argc != 4 && argc != 5)
+  if (argc < 4 || argc > 6)
   {
     std::cout << "Wrong input, going to exit." << std::endl;
-    std::cout << "There should be arguments: dumped_cnn_file input_sample output_file." << std::endl;
+    std::cout << "There should be arguments: dumped_cnn_file input_sample output_file verbose delegates." << std::endl;
+    std::cout << "Delegates (conv2d|dense|softmax)\n\t-conv2d:  100\n\t-dense:   010\n\t-softmax: 001" << std::endl;
 
     return -1;
   }
@@ -15,7 +16,7 @@ int main(int argc, char *argv[])
   std::string dumped_cnn = argv[1];
   std::string input_data = argv[2];
   std::string response_file = argv[3];
-  bool verbose = (argc == 5 && argv[4][0] == '1');
+  bool verbose = (argc > 4 && argv[4][0] == '1');
 
   std::cout << "Testing network from " << dumped_cnn << " on data from " << input_data << std::endl;
 
@@ -25,9 +26,9 @@ int main(int argc, char *argv[])
 
   // Add delegates
   keras::DelegateEnabler enabler;
-  enabler.conv2d = true;
-  enabler.fully_connected = true;
-  enabler.softmax = true;
+  enabler.conv2d = (argc == 6 && argv[5][0] == '1');
+  enabler.fully_connected = (argc == 6 && argv[5][1] == '1');
+  enabler.softmax = (argc == 6 && argv[5][2] == '1');
 
   // Construct network
   keras::KerasModel m(dumped_cnn, verbose, enabler);

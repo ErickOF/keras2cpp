@@ -18,7 +18,7 @@ parser.add_argument('-w', '--weights',
                     help='Model weights in HDF5 format', required=True)
 parser.add_argument('-d', '--data_sample',
                     help='File where to write random data sample', required=True)
-parser.add_argument('-o', '--output', help='File where to write network outpu', required=True)
+parser.add_argument('-o', '--output', help='File where to write network output', required=True)
 parser.add_argument('-v', '--verbose', default=0, help='Verbose', required=False)
 args = parser.parse_args()
 

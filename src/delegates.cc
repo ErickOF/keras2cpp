@@ -1,6 +1,68 @@
 #include <delegates.hpp>
 
 /**
+ * @brief Construct a new Delegate Conv2D object
+ *
+ * @param verbose enable or disable verbose mode
+ */
+keras::DelegateConv2D::DelegateConv2D(bool verbose) : Delegate("Conv2D", verbose)
+{
+    IPC ipc;
+    m_accel = ipc.exists_accel(AXC_CONV2D);
+}
+
+/**
+ * @brief Default constructor for a new Delegate Conv2D object
+ *
+ */
+keras::DelegateConv2D::DelegateConv2D() : Delegate("Conv2D", false)
+{
+    IPC ipc;
+    m_accel = ipc.exists_accel(AXC_CONV2D);
+}
+
+/**
+ * @brief Construct a new Delegate FullyConnected object
+ *
+ * @param verbose enable or disable verbose mode
+ */
+keras::DelegateFullyConnected::DelegateFullyConnected(bool verbose) : Delegate("FullyConnected", verbose)
+{
+    IPC ipc;
+    m_accel = ipc.exists_accel(AXC_FULLY_CONNECTED);
+}
+
+/**
+ * @brief Default constructor for a new Delegate FullyConnected object
+ *
+ */
+keras::DelegateFullyConnected::DelegateFullyConnected() : Delegate("FullyConnected", false)
+{
+    IPC ipc;
+    m_accel = ipc.exists_accel(AXC_FULLY_CONNECTED);
+}
+
+/**
+ * @brief Construct a new Delegate Softmax object
+ *
+ * @param verbose enable or disable verbose mode
+ */
+keras::DelegateSoftmax::DelegateSoftmax(bool verbose) : Delegate("Softmax", verbose)
+{
+    IPC ipc;
+    m_accel = ipc.exists_accel(AXC_SOFTMAX);
+}
+/**
+ * @brief Default constructor for a new Delegate Softmax object
+ *
+ */
+keras::DelegateSoftmax::DelegateSoftmax() : Delegate("Softmax")
+{
+    IPC ipc;
+    m_accel = ipc.exists_accel(AXC_SOFTMAX);
+}
+
+/**
  * @brief Evaluate convolution 2D
  *
  * @param input input data to apply convolution
@@ -40,7 +102,8 @@ void keras::DelegateConv2D::eval(
                     flat_kernels.push_back(kernels[k][l][i][j]);
 
     /* Calling driver to get the output */
-    flat_output = apply_conv2d(flat_input, flat_kernels, params, m_verbose);
+    IPC ipc(m_verbose);
+    flat_output = ipc.apply_conv2d(flat_input, flat_kernels, params);
 }
 
 /**
@@ -69,7 +132,8 @@ void keras::DelegateFullyConnected::eval(const std::vector<float> input,
         for (int j = 0; j < weights[0].size(); ++j)
             flat_weights.push_back(weights[i][j]);
 
-    std::vector<float> out_vector = apply_fully_connected(input, flat_weights, params, m_verbose);
+    IPC ipc(m_verbose);
+    std::vector<float> out_vector = ipc.apply_fully_connected(input, flat_weights, params);
 }
 
 /**
@@ -88,5 +152,7 @@ std::vector<float> keras::DelegateSoftmax::eval(std::vector<float> input)
         std::cout << m_name << " delegate running..." << std::endl;
 
     /* Calling driver to get the output */
-    return apply_softmax(input, m_verbose);
+    IPC ipc(m_verbose);
+
+    return ipc.apply_softmax(input);
 }

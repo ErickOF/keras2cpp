@@ -42,13 +42,13 @@ public:
    * @param name delegate's name
    * @param verbose enable or disable verbose mode
    */
-  Delegate(std::string name, bool verbose) : m_name(name), m_verbose(verbose) {}
+  Delegate(std::string name, bool verbose) : m_name(name), m_verbose(verbose), m_accel(false) {}
   /**
    * @brief Construct a new Delegate object
    *
    * @param name delegate's name
    */
-  Delegate(std::string name) : m_name(name), m_verbose(false) {}
+  Delegate(std::string name) : m_name(name), m_verbose(false), m_accel(false) {}
   /**
    * @brief Default constructor for a new Delegate object
    *
@@ -65,6 +65,17 @@ public:
     return m_name;
   }
 
+  /**
+   * @brief Indicates if an accelerator exists to execute the operation
+   * 
+   * @return true if accelerator exists
+   * @return false if accelerator doesn't exist
+   */
+  bool has_accel()
+  {
+    return m_accel;
+  }
+
 protected:
   /**
    * @brief Delegate's name
@@ -76,6 +87,11 @@ protected:
    *
    */
   bool m_verbose;
+  /**
+   * @brief Indicates if an accelerator exists to execute the operation
+   * 
+   */
+  bool m_accel;
 };
 
 class keras::DelegateConv2D : public Delegate
@@ -86,12 +102,12 @@ public:
    *
    * @param verbose enable or disable verbose mode
    */
-  DelegateConv2D(bool verbose) : Delegate("Conv2D", verbose) {}
+  DelegateConv2D(bool verbose);
   /**
    * @brief Default constructor for a new Delegate Conv2D object
    *
    */
-  DelegateConv2D() : Delegate("Conv2D", false) {}
+  DelegateConv2D();
   /**
    * @brief Destroy the Delegate Conv2D object
    *
@@ -120,12 +136,12 @@ public:
    *
    * @param verbose enable or disable verbose mode
    */
-  DelegateFullyConnected(bool verbose) : Delegate("FullyConnected", verbose) {}
+  DelegateFullyConnected(bool verbose);
   /**
    * @brief Default constructor for a new Delegate FullyConnected object
    *
    */
-  DelegateFullyConnected() : Delegate("FullyConnected", false) {}
+  DelegateFullyConnected();
   /**
    * @brief Destroy the Delegate Fully Connected object
    *
@@ -153,12 +169,12 @@ public:
    *
    * @param verbose enable or disable verbose mode
    */
-  DelegateSoftmax(bool verbose) : Delegate("Softmax", verbose) {}
+  DelegateSoftmax(bool verbose);
   /**
    * @brief Default constructor for a new Delegate Softmax object
    *
    */
-  DelegateSoftmax() : Delegate("Softmax") {}
+  DelegateSoftmax();
   /**
    * @brief Destroy the Delegate Softmax object
    *

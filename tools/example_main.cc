@@ -14,7 +14,8 @@ using namespace keras;
 // To execute:
 // a.out
 
-int main() {
+int main()
+{
   cout << "This is simple example with Keras neural network model loading into C++.\n"
            << "Keras model will be used in C++ for prediction only." << endl;
 

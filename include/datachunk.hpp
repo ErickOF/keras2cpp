@@ -95,7 +95,8 @@ public:
    * 
    * @param verbose activate verbose mode
    */
-  DataChunk2D(bool verbose) : DataChunk() {
+  DataChunk2D(bool verbose) : DataChunk()
+  {
     this->verbose = verbose;
   };
 
@@ -135,7 +136,8 @@ public:
    * @brief Set the 1D data into the object
    * 
    */
-  virtual void set_data(std::vector<std::vector<std::vector<float>>> const &d) {
+  virtual void set_data(std::vector<std::vector<std::vector<float>>> const &d)
+  {
     data = d;
   };
 
@@ -181,7 +183,8 @@ public:
       }
     }
   }
-  // unsigned int get_count() {
+  // unsigned int get_count()
+  // {
   //   return data.size()*data[0].size()*data[0][0].size();
   // }
 
@@ -256,7 +259,8 @@ public:
    * 
    * @return std::vector<float>& 1D values
    */
-  std::vector<float> &get_1d_rw() {
+  std::vector<float> &get_1d_rw()
+  {
     return f;
   }
 

@@ -17,11 +17,13 @@ parser = argparse.ArgumentParser(description='This is a simple script compare pr
 
 parser.add_argument('-k', '--keras_response', help="Response from Keras (test_run_cnn.py)", required=True)
 parser.add_argument('-c', '--keras2cpp_response', help="Response from Keras2cpp (test_run_cnn.cc)", required=True)
+parser.add_argument('-e', '--min_error', help="Min error on comparison (1e-6)", required=False)
 args = parser.parse_args()
 
 
 keras_output     = get_numbers_from_file(args.keras_response)
 keras2cpp_output = get_numbers_from_file(args.keras2cpp_response)
+min_error        = eval(args.min_error) if args.min_error else 1e-6
 
 if len(keras_output) != len(keras2cpp_output):
     print("Different output dimensions")
@@ -29,12 +31,15 @@ if len(keras_output) != len(keras2cpp_output):
 
 sub = np.sum(np.abs(keras_output - keras2cpp_output))
 
-if sub < 1e-6:
+print('Keras output:', keras_output)
+print('Keras2cpp output:', keras2cpp_output)
+print('Difference value:', sub)
+
+if sub < min_error:
     print('Test: [DONE]')
     print('Dump is working correctly.')
     sys.exit(0)
 else:
     print('Test: [ERROR]')
     print('The output from Keras and Keras2cpp are different.')
-    print('Difference value:', sub)
     sys.exit(1)

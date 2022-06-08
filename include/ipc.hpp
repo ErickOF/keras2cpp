@@ -92,6 +92,8 @@ typedef enum axc_user_request
     AXC_EXECUTE,
     /* Deallocate shared memory */
     AXC_DEALLOCATE,
+    /* Check if an accelerator exists */
+    AXC_EXISTS,
 } axc_user_request_t;
 
 /**
@@ -134,71 +136,118 @@ typedef enum conv_padding
     CONV_PADDING_SAME
 } conv_padding_t;
 
-/**
- * @brief Call back-end to execute convolution 2D
- *
- * @param input input data to apply convolution
- * @param kernels kernels to use
- * @param params convolution parameters
- * @param verbose activate verbose mode to print out messages
- * @return std::vector<float> result of convolution 2D
- */
-std::vector<float> apply_conv2d(
-    std::vector<float> input,
-    std::vector<float> kernels,
-    axc_delegate_conv_params_t *params,
-    bool verbose);
+class IPC
+{
+private:
+    /* File descriptor of the shared memory */
+    int fd_shm;
+    /* Semaphores to lock memory R/W operations */
+    sem_t *mutex_sem;
+    /* Shared memory for IPC */
+    axc_shared_mem_t *shared_mem;
+    /* Enable verbose mode */
+    bool verbose;
 
-/**
- * @brief Call back-end to execute fully connected
- *
- * @param input input data to apply matrix-matrix multiplication
- * @param weights weights
- * @param params fully connected parameters
- * @param verbose activate verbose mode to print out messages
- * @return std::vector<float> result of matrix-matrix multiplication
- */
-std::vector<float> apply_fully_connected(std::vector<float> input,
-                                         std::vector<float> weights,
-                                         axc_delegate_fully_connected_params_t *params,
-                                         bool verbose);
+    /**
+     * @brief Open shared memory section for IPC
+     *
+     */
+    void open_shared_mem();
 
-/**
- * @brief Call back-end to execute softmax function
- *
- * @param input data to apply softmax
- * @param verbose activate verbose mode to print out messages
- * @return std::vector<float>
- */
-std::vector<float> apply_softmax(std::vector<float> input, bool verbose);
+    /**
+     * @brief Open semaphore for shared memory synchronization
+     *
+     */
+    void open_sem();
 
-/**
- * @brief Read data from a specific buffer
- *
- * @param shm_name shered memory name
- * @param size size of the buffer to read
- * @param verbose activate verbose mode to print out messages
- * @return std::vector<float> values read from the buffer
- */
-std::vector<float> read_buffer(const char *shm_name, int size, bool verbose);
+    /**
+     * @brief Read data from a specific buffer
+     *
+     * @param shm_name shared memory name
+     * @param size size of the buffer to read
+     * @param verbose activate verbose mode to print out messages
+     * @return std::vector<float> values read from the buffer
+     */
+    std::vector<float> read_buffer(const char *shm_name, int size, bool verbose);
 
-/**
- * @brief Write in a specific buffer
- *
- * @param data data to write in the buffer
- * @param shm_name shared memory name
- * @param size size of the memory to write
- * @param verbose activate verbose mode to print out messages
- * @return bool true if the operation was successfull, otherwise false
- */
-template <typename I, typename T>
-bool write_buffer(I data, size_t size, const char *shm_name, bool verbose);
+    /**
+     * @brief Release shared memory section for IPC
+     *
+     */
+    void release_shared_mem();
 
-/**
- * @brief Print out shared memory data when verbose mode is on
- *
- * @param shmem shared memory to print
- */
-void shared_memory_verbose(axc_shared_mem_t *shmem);
+    /**
+     * @brief Print out shared memory data when verbose mode is on
+     *
+     * @param shmem shared memory to print
+     */
+    void shared_memory_verbose(axc_shared_mem_t *shmem);
+
+    /**
+     * @brief Wait daemon response
+     *
+     */
+    void wait_response();
+
+    /**
+     * @brief Write in a specific buffer
+     *
+     * @param data data to write in the buffer
+     * @param shm_name shared memory name
+     * @param size size of the memory to write
+     * @param verbose activate verbose mode to print out messages
+     * @return bool true if the operation was success, otherwise false
+     */
+    template <typename I, typename T>
+    bool write_buffer(I data, size_t size, const char *shm_name, bool verbose);
+
+public:
+    IPC(bool verbose);
+    IPC();
+
+    /**
+     * @brief Call back-end to execute convolution 2D
+     *
+     * @param input input data to apply convolution
+     * @param kernels kernels to use
+     * @param params convolution parameters
+     * @return std::vector<float> result of convolution 2D
+     */
+    std::vector<float> apply_conv2d(
+        std::vector<float> input,
+        std::vector<float> kernels,
+        axc_delegate_conv_params_t *params);
+
+    /**
+     * @brief Call back-end to execute fully connected
+     *
+     * @param input input data to apply matrix-matrix multiplication
+     * @param weights weights
+     * @param params fully connected parameters
+     * @return std::vector<float> result of matrix-matrix multiplication
+     */
+    std::vector<float> apply_fully_connected(
+        std::vector<float> input,
+        std::vector<float> weights,
+        axc_delegate_fully_connected_params_t *params);
+
+    /**
+     * @brief Call back-end to execute softmax function
+     *
+     * @param input data to apply softmax
+     * @return std::vector<float> softmax result
+     */
+    std::vector<float> apply_softmax(std::vector<float> input);
+
+    /**
+     * @brief Check if there's an accelerator capable of executing the
+     * operation
+     *
+     * @param op operation to execute
+     * @return true if accelerator exists
+     * @return false if accelerator doesn't exist
+     */
+    bool exists_accel(axc_op_t op);
+};
 
 #endif /* KERAS2CPP_IPC_HPP */

@@ -52,11 +52,13 @@ protected:
 class keras::LayerActivation : public Layer
 {
 public:
-  LayerActivation(bool verbose) : Layer("Activation", verbose) {
+  LayerActivation(bool verbose) : Layer("Activation", verbose)
+  {
     m_delegate = nullptr;
   }
 
-  LayerActivation() : Layer("Activation") {
+  LayerActivation() : Layer("Activation")
+  {
     m_delegate = nullptr;
   }
 
@@ -91,7 +93,7 @@ public:
   LayerFlatten(bool verbose) : Layer("Flatten", verbose) {}
   LayerFlatten() : Layer("Flatten") {}
 
-  void load_weights(std::ifstream &fin, DelegateEnabler &enabler){};
+  void load_weights(std::ifstream &fin, DelegateEnabler &enabler) {};
   keras::DataChunk *compute_output(keras::DataChunk *);
 
   unsigned int get_input_rows() const override
@@ -148,7 +150,8 @@ public:
     this->m_delegate = nullptr;
   }
 
-  LayerConv2D() : Layer("Conv2D") {
+  LayerConv2D() : Layer("Conv2D")
+  {
     this->m_delegate = nullptr;
   }
 
@@ -187,7 +190,8 @@ public:
     m_delegate = nullptr;
   }
 
-  LayerDense() : Layer("Dense") {
+  LayerDense() : Layer("Dense")
+  {
     m_delegate = nullptr;
   }
 
