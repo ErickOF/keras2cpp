@@ -3,8 +3,52 @@ import json
 from keras.models import model_from_json
 import numpy as np
 
+from keras.engine.functional import Functional
+from keras.engine.input_layer import InputLayer
 
-def convert_model(args):
+def get_arch_layers(arch_layers):
+    """Convert all layers in a single list, including Functional layers.
+
+    Args:
+        arch_layers (list): architecture layers.
+    """
+    layers = []
+
+    while arch_layers != []:
+        if (arch_layers[0]['class_name'] == 'Functional'):
+            sub_layers = arch_layers.pop(0)['config']['layers']
+
+            if (sub_layers[0]['class_name'] == 'InputLayer'):
+                sub_layers.pop(0)
+
+            arch_layers = sub_layers + arch_layers
+        else:
+            layers.append(arch_layers.pop(0))
+
+    return layers
+
+def get_model_layers(model_layers):
+    """Convert all layers in a single list, including Functional layers.
+
+    Args:
+        model_layers (list): model layers.
+    """
+    layers = []
+
+    while model_layers != []:
+        if (isinstance(model_layers[0], Functional)):
+            sub_layers = model_layers.pop(0).layers
+
+            if (isinstance(sub_layers[0], InputLayer)):
+                sub_layers.pop(0)
+
+            model_layers = sub_layers + model_layers
+        else:
+            layers.append(model_layers.pop(0))
+
+    return layers
+
+def convert_model_top(args):
     """Convert input JSON file to a keras model.
 
     Args:
@@ -23,12 +67,15 @@ def convert_model(args):
 
     # Empty the content of the model into an output file used by keras2cpp
     with open(args.output, 'w') as fout:
-        fout.write(f'layers {len(model.layers)}\n')
-
-        layers = []
+        input_layer = 0
+        arch_layers = get_arch_layers(arch['config']['layers'])
+        model_layers = get_model_layers(model.layers)
         activations = 0
 
-        for ind, l in enumerate(arch['config']['layers']):
+        print(f'layers {len(arch_layers)}')
+        fout.write(f'layers {len(arch_layers)}\n')
+
+        for ind, l in enumerate(arch_layers):
             if args.verbose:
                 print(ind + activations, l)
 
@@ -36,16 +83,10 @@ def convert_model(args):
 
             print(f'{ind + activations} {l["class_name"]}')
 
-            layers += [l['class_name']]
-
-            if l['class_name'] == 'Conv2D':
-                #fout.write(str(l['config']['nb_filter']) + ' ' + str(l['config']['nb_col']) + ' ' + str(l['config']['nb_row']) + ' ')
-
-                # if 'batch_input_shape' in l['config']:
-                #    fout.write(str(l['config']['batch_input_shape'][1]) + ' ' + str(l['config']['batch_input_shape'][2]) + ' ' + str(l['config']['batch_input_shape'][3]))
-                # fout.write('\n')
-
-                W = model.layers[ind].get_weights()[0]
+            if l['class_name'] == 'InputLayer':
+                input_layer += 1
+            elif l['class_name'] == 'Conv2D':
+                W = model_layers[ind - input_layer].get_weights()[0]
                 w_rows, w_cols, w_depth, w_batch = W.shape
                 W = W.reshape((w_batch, w_depth, w_rows, w_cols))
 
@@ -53,36 +94,37 @@ def convert_model(args):
                     print(W.shape)
 
                 fout.write(f'{W.shape[0]} {W.shape[1]} {W.shape[2]} {W.shape[3]} {l["config"]["padding"]}\n')
+                print(f'{W.shape[0]} {W.shape[1]} {W.shape[2]} {W.shape[3]} {l["config"]["padding"]}')
 
                 for i in range(W.shape[0]):
                     for j in range(W.shape[1]):
                         for k in range(W.shape[2]):
                             fout.write(str(W[i, j, k]) + '\n')
 
-                fout.write(f'{model.layers[ind].get_weights()[1]}\n')
-
+                fout.write(f'{model_layers[ind - input_layer].get_weights()[1]}\n')
             elif l['class_name'] == 'MaxPooling2D':
                 fout.write(f'{l["config"]["pool_size"][0]} {l["config"]["pool_size"][1]}\n')
-            # if l['class_name'] == 'Flatten':
-            #    print(l['config']['name'])
-
+                print(f'{l["config"]["pool_size"][0]} {l["config"]["pool_size"][1]}')
+            elif l['class_name'] == 'Flatten':
+                print(l['config']['name'])
             elif l['class_name'] == 'Dense':
-                # fout.write(str(l['config']['output_dim']) + '\n')
-                W = model.layers[ind].get_weights()[0]
+                W = model_layers[ind - input_layer].get_weights()[0]
 
                 if args.verbose:
                     print(W.shape)
 
                 fout.write(f'{W.shape[0]} {W.shape[1]}\n')
+                print(f'{W.shape[0]} {W.shape[1]}')
 
                 for w in W:
                     fout.write(f'{w}\n')
 
-                fout.write(f'{model.layers[ind].get_weights()[1]}\n')
+                fout.write(f'{model_layers[ind - input_layer].get_weights()[1]}\n')
 
             if 'activation' in l['config']:
                 activations += 1
                 print(f'{ind + activations} Activation')
+                print(f'{l["config"]["activation"]}')
                 fout.write(f'layer {ind + activations} Activation\n')
                 fout.write(f'{l["config"]["activation"]}\n')
 
@@ -114,4 +156,4 @@ if __name__ == '__main__':
     print(f'Read weights from {args.weights}')
     print(f'Writing to {args.output}')
 
-    convert_model(args)
+    convert_model_top(args)
